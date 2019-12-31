@@ -1,0 +1,6 @@
+[psql]
+    dbname = "cryptoc"
+    host   = "localhost"
+    user   = "cryptoc"
+    pass   = "cryptoc"
+    sslmode= "disable"

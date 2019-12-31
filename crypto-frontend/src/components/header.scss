@@ -1,0 +1,10 @@
+@import "../colors.scss";
+
+nav {
+  background-color: $background;
+}
+
+.navbar-link,
+.navbar-item {
+  color: $chalk;
+}
