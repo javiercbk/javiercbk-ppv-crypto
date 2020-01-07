@@ -1,6 +1,7 @@
 package response
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -102,7 +103,7 @@ func NewInternalErrorResponse(c echo.Context, message string) error {
 
 // NewNotFoundResponse sends a not found response
 func NewNotFoundResponse(c echo.Context) error {
-	return NewErrorResponseWithCode(c, http.StatusNotFound)
+	return NewErrorResponse(c, http.StatusNotFound, fmt.Sprintf("\"%s\" was not found", c.Path()))
 }
 
 // NewBadRequestResponse sends a bad response with a reason

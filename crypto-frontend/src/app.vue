@@ -1,14 +1,11 @@
 <template>
-  <div class="fullscreen">
-    <div id="header">
-      <div class="landing">
-        <app-header></app-header>
-        <div class="container fullscreen">
-          <router-view />
-        </div>
-      </div>
+  <section class="hero is-fullheight-with-navbar">
+    <app-header></app-header>
+    <div class="hero-body is-flex-start">
+      <router-view />
     </div>
-  </div>
+    <app-footer></app-footer>
+  </section>
 </template>
 
 <style lang="scss" src="./app_global.scss"></style>

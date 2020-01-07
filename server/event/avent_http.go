@@ -65,9 +65,14 @@ func (h Handler) Routes(e *echo.Group, jwtMiddleware echo.MiddlewareFunc, jwtOpt
 func (h Handler) retrieveEventList(c echo.Context) error {
 	ctx := c.Request().Context()
 	jwtUser := &security.JWTUser{}
-	err := h.parseOptionalJWTUser(c, jwtUser)
+	err := security.JWTDecode(c, jwtUser)
 	if err != nil {
-		return response.NewUnauthorizedErrorResponse(c)
+		if !errors.Is(err, security.ErrUserNotFound) {
+			h.logger.Printf("could not parse user%v\n", err)
+			return response.NewUnauthorizedErrorResponse(c)
+		}
+		jwtUser = nil
+		err = nil
 	}
 	ppvQuery := PPVEventQuery{}
 	err = c.Bind(&ppvQuery)
@@ -123,9 +128,14 @@ func (h Handler) retrieveEvent(c echo.Context) error {
 		return response.NewNotFoundResponse(c)
 	}
 	jwtUser := &security.JWTUser{}
-	err = h.parseOptionalJWTUser(c, jwtUser)
+	err = security.JWTDecode(c, jwtUser)
 	if err != nil {
-		return response.NewUnauthorizedErrorResponse(c)
+		if !errors.Is(err, security.ErrUserNotFound) {
+			h.logger.Printf("could not parse user%v\n", err)
+			return response.NewUnauthorizedErrorResponse(c)
+		}
+		jwtUser = nil
+		err = nil
 	}
 	api := h.apiFactory(h.logger, h.db)
 	event, err := api.RetrieveEvent(ctx, eventID, jwtUser)
@@ -169,16 +179,4 @@ func (h Handler) retrievePayments(c echo.Context) error {
 	api := h.apiFactory(h.logger, h.db)
 	payments, err := api.RetrievePaymentStatus(ctx, eventID, jwtUser)
 	return response.NewSuccessResponse(c, payments)
-}
-
-func (h Handler) parseOptionalJWTUser(c echo.Context, jwtUser *security.JWTUser) error {
-	err := security.JWTDecode(c, jwtUser)
-	if err != nil {
-		if !errors.Is(err, security.ErrUserNotFound) {
-			h.logger.Printf("could not parse user%v\n", err)
-			return err
-		}
-		jwtUser = nil
-	}
-	return nil
 }

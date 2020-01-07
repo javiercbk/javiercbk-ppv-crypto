@@ -18,9 +18,16 @@ $colors: map-merge($colors, $addColors);
 
 $family-sans-serif: "Nunito", sans-serif;
 
-.fullscreen {
+body {
+  height: 100vh;
+}
+
+.fullheight {
   min-height: 100%;
-  position: relative;
+}
+
+.is-flex-start {
+  align-items: flex-start !important;
 }
 
 // Import a Google Font

@@ -4,7 +4,10 @@ nav {
   background-color: $background;
 }
 
-.navbar-link,
-.navbar-item {
+.navbar-link, .navbar-item{
   color: $chalk;
+}
+
+.navbar-dropdown .navbar-item {
+  color: $chalk-invert
 }

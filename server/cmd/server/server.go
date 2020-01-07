@@ -6,37 +6,47 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
 	"github.com/javiercbk/ppv-crypto/server/http"
 )
 
-const defaultLogFilePath = "ppvcrypto-server.log"
-const defaultJWTSecret = "ppvcrypto"
-const defaultAddress = "0.0.0.0"
-const defaultDBName = "ppvcrypto"
-const defaultDBUser = "ppvcrypto"
+const (
+	defaultLogFilePath = "stdout"
+	defaultJWTSecret   = "ppvcrypto"
+	defaultAddress     = "0.0.0.0:9000"
+	defaultDBHost      = "127.0.0.1"
+	defaultDBName      = "cryptoc"
+	defaultDBUser      = "cryptoc"
+	defaultDBPass      = "cryptoc"
+)
 
 func main() {
-	db := sql.DB{}
 	var logFilePath, address, jwtSecret, dbName, dbHost, dbUser, dbPass string
 	flag.StringVar(&logFilePath, "l", defaultLogFilePath, "the log file location")
 	flag.StringVar(&address, "a", defaultAddress, "the http server address")
 	flag.StringVar(&jwtSecret, "jwt", defaultJWTSecret, "the jwt secret")
 	flag.StringVar(&dbName, "dbn", defaultDBName, "the database name")
-	flag.StringVar(&dbHost, "dbh", defaultDBUser, "the database host")
-	flag.StringVar(&dbUser, "dbu", "", "the database user")
-	flag.StringVar(&dbPass, "dbp", "", "the database password")
+	flag.StringVar(&dbHost, "dbh", defaultDBHost, "the database host")
+	flag.StringVar(&dbUser, "dbu", defaultDBUser, "the database user")
+	flag.StringVar(&dbPass, "dbp", defaultDBPass, "the database password")
 	flag.Parse()
-	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		fmt.Printf("error opening lof file: %s", err)
-		os.Exit(1)
+	var logWritter io.Writer
+	if logFilePath != "stdout" {
+		logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			fmt.Printf("error opening lof file: %s", err)
+			os.Exit(1)
+		}
+		defer logFile.Close()
+		logWritter = logFile
+	} else {
+		logWritter = os.Stdout
 	}
-	defer logFile.Close()
-	logger := log.New(logFile, "applog: ", log.Lshortfile|log.LstdFlags)
-	err = connectPostgres(dbName, dbHost, dbUser, dbPass, &db)
+	logger := log.New(logWritter, "applog: ", log.Lshortfile|log.LstdFlags)
+	db, err := connectPostgres(dbName, dbHost, dbUser, dbPass, logger)
 	if err != nil {
 		logger.Printf("error connecting to postgres: %s", err)
 		os.Exit(1)
@@ -45,22 +55,23 @@ func main() {
 		Address:   address,
 		JWTSecret: jwtSecret,
 	}
-	err = http.Serve(cnf, logger, &db)
+	logger.Printf("server is initializing\n")
+	err = http.Serve(cnf, logger, db)
 	if err != nil {
 		logger.Fatalf("could not start server %s\n", err)
 	}
 }
 
-func connectPostgres(dbName, dbHost, dbUser, dbPass string, db *sql.DB) error {
-	var err error
-	postgresOpts := fmt.Sprintf("dbname=%s host=%s user=%s password=%s", dbName, dbHost, dbUser, dbPass)
-	db, err = sql.Open("postgres", postgresOpts)
+func connectPostgres(dbName, dbHost, dbUser, dbPass string, logger *log.Logger) (*sql.DB, error) {
+	logger.Printf("connecting to postgres server\n")
+	postgresOpts := fmt.Sprintf("dbname=%s host=%s user=%s password=%s sslmode=disable", dbName, dbHost, dbUser, dbPass)
+	db, err := sql.Open("postgres", postgresOpts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = db.Ping()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return db, nil
 }

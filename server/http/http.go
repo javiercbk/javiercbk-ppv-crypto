@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	gommonLog "github.com/labstack/gommon/log"
+
 	// imports the postgres sql driver
 	_ "github.com/lib/pq"
 )
@@ -42,7 +44,12 @@ func (cv *customValidator) Validate(i interface{}) error {
 }
 
 func customHTTPErrorHandler(err error, c echo.Context) {
-	response.NewResponseFromError(c, err)
+	// github.com/labstack/echo/v4.HTTPError>(0xc00009d1a0
+	if errors.Is(err, echo.ErrNotFound) {
+		response.NewNotFoundResponse(c)
+	} else {
+		response.NewResponseFromError(c, err)
+	}
 }
 
 // Serve http connections

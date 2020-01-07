@@ -77,9 +77,8 @@ func JWTEncode(user JWTUser, d time.Duration) jwt.MapClaims {
 // JWTDecode attempt to decode a user
 func JWTDecode(c echo.Context, jwtUser *JWTUser) error {
 	var err error
-	var ok bool
-	user := c.Get(contextKey).(*jwt.Token)
-	if user == nil {
+	user, ok := c.Get(contextKey).(*jwt.Token)
+	if !ok {
 		err = ErrUserNotFound
 	} else {
 		claims := user.Claims.(jwt.MapClaims)

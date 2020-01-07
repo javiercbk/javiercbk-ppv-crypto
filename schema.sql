@@ -10,9 +10,9 @@ CREATE TABLE users(
     last_name TEXT NOT NULL,
     password TEXT NOT NULL,
     registration_date TIMESTAMPTZ NOT NULL,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ,
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT user_name_cnst CHECK (char_length(first_name) <= 256 AND char_length(last_name) <= 256),
     CONSTRAINT user_email_cnst CHECK (char_length(email) <= 256)
 );
@@ -26,13 +26,21 @@ CREATE TABLE pay_per_view_events(
     "event_type" TEXT NOT NULL,
     "start" TIMESTAMPTZ,
     "end" TIMESTAMPTZ,
-    "price_ETH" BIGINT,
-    "price_BTC" BIGINT,
-    "price_XMR" BIGINT,
+    "price_eth" BIGINT,
+    "price_btc" BIGINT,
+    "price_xmr" BIGINT,
     "eth_contract_addr" TEXT,
     "created_at" TIMESTAMPTZ,
     "updated_at" TIMESTAMPTZ
 );
+
+CREATE INDEX pay_per_view_events_name_idx ON pay_per_view_events ("name");
+CREATE INDEX pay_per_view_events_description_idx ON pay_per_view_events ("description");
+CREATE INDEX pay_per_view_events_event_type_idx ON pay_per_view_events (event_type);
+CREATE INDEX pay_per_view_events_start_idx ON pay_per_view_events ("start");
+CREATE INDEX pay_per_view_events_end_idx ON pay_per_view_events ("end");
+CREATE INDEX pay_per_view_events_name_description_type_idx ON pay_per_view_events ("name", "description", event_type);
+CREATE INDEX pay_per_view_events_start_end_idx ON pay_per_view_events ("start", "end");
 
 CREATE TABLE payments(
     id BIGSERIAL NOT NULL PRIMARY KEY,
@@ -52,6 +60,8 @@ CREATE TABLE payments(
     cancelled_tx_hash TEXT,
     cancelled_tx_number_hex TEXT,
     cancelled_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ,
     CONSTRAINT payments_user_fk FOREIGN KEY (user_id) REFERENCES users (id)
 );
 

@@ -18,13 +18,6 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qm"
 )
 
-// healthCheck is the device health check
-type healthCheck string
-
-func (hc healthCheck) String() string {
-	return string(hc)
-}
-
 // InexistentEventErr is returned when attempting to retrieve a non existing event
 type InexistentEventErr string
 
@@ -98,9 +91,9 @@ type PPVEvent struct {
 // PPVEventQuery contains all the data to query a PPVEvent
 type PPVEventQuery struct {
 	ID    int64
-	Query string    `json:"query" validate:"gt=1,lte=256"`
-	From  time.Time `json:"from"`
-	To    time.Time `json:"to"`
+	Query string    `json:"query,omitempty" validate:"lte=256"`
+	From  time.Time `json:"from,omitempty"`
+	To    time.Time `json:"to,omitempty" validate:"gtfield=From|eqfield=From"`
 }
 
 // PPVEventPayment contains the information to process a payment
@@ -160,7 +153,7 @@ func (api api) CreateEvent(ctx context.Context, ppvEvent *models.PayPerViewEvent
 		models.PayPerViewEventColumns.EventType,
 		models.PayPerViewEventColumns.Start,
 		models.PayPerViewEventColumns.End,
-		models.PayPerViewEventColumns.PriceETH,
+		models.PayPerViewEventColumns.PriceEth,
 		models.PayPerViewEventColumns.PriceBTC,
 		models.PayPerViewEventColumns.PriceXMR,
 		models.PayPerViewEventColumns.EthContractAddr,
@@ -230,8 +223,8 @@ func (api api) RegisterUnsubscription(ctx context.Context, payment PPVEventPayme
 }
 
 func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEventQuery, user *security.JWTUser) ([]PPVEventAndSubscription, error) {
-	var subscription []PPVEventAndSubscription
-	var results []ppvEventAndSubscriptionResults
+	subscription := make([]PPVEventAndSubscription, 0)
+	results := make([]ppvEventAndSubscriptionResults, 0)
 	queryBuilder := strings.Builder{}
 	queryParams := make([]interface{}, 0, 4)
 	queryBuilder.WriteString(`
@@ -245,24 +238,37 @@ func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEvent
 	pay_per_view_events.price_ETH AS "pay_per_view_events.price_ETH",
 	pay_per_view_events.price_BTC AS "pay_per_view_events.price_BTC",
 	pay_per_view_events.price_XMR AS "pay_per_view_events.price_XMR",
-	pay_per_view_events.createdAt AS "pay_per_view_events.createdAt",
-	pay_per_view_events.updatedAt AS "pay_per_view_events.updatedAt",
-	payments.id AS "payments.id",
-	payments.currency AS "payments.currency",
-	payments.currency_payment_id AS "payments.currency_payment_id",
-	payments.block_hash AS "payments.block_hash",
-	payments.block_number_hex AS "payments.block_number_hex",
-	payments.tx_hash AS "payments.tx_hash",
-	payments.wallet_address AS "payments.wallet_address",
-	payments.tx_number_hex AS "payments.tx_number_hex",
-	payments.amount AS "payments.amount",
-	payments.status AS "payments.status"
-	FROM pay_per_view_events
+	pay_per_view_events.created_at AS "pay_per_view_events.createdAt",
+	pay_per_view_events.updated_at AS "pay_per_view_events.updatedAt"
 	`)
 	paramN := 1
 	if user != nil {
 		queryParams = append(queryParams, user.ID)
 		// LEFT OUTER JOIN payments ON (pay_per_view_events.id = payments.pay_per_view_event_id AND payments.user_id = $%d)
+		queryBuilder.WriteString(`,
+		payments.id AS "payments.id",
+		payments.currency AS "payments.currency",
+		payments.currency_payment_id AS "payments.currency_payment_id",
+		payments.block_hash AS "payments.block_hash",
+		payments.block_number_hex AS "payments.block_number_hex",
+		payments.tx_hash AS "payments.tx_hash",
+		payments.wallet_address AS "payments.wallet_address",
+		payments.tx_number_hex AS "payments.tx_number_hex",
+		payments.amount AS "payments.amount",
+		payments.status AS "payments.status",
+		payments.block_hash AS "payments.block_hash",
+		payments.block_number_hex AS "payments.block_number_hex",
+		payments.tx_hash AS "payments.tx_hash",
+		payments.tx_number_hex AS "payments.tx_number_hex",
+		payments.cancelled_block_hash AS "payments.cancelled_block_hash",
+		payments.cancelled_block_number_hex AS "payments.cancelled_block_number_hex",
+		payments.cancelled_tx_hash AS "payments.cancelled_tx_hash",
+		payments.cancelled_tx_number_hex AS "payments.cancelled_tx_number_hex",
+		payments.cancelled_at AS "payments.cancelled_at",
+		payments.created_at AS "payments.created_at",
+		payments.updated_at AS "payments.updated_at"
+		FROM pay_per_view_events
+	`)
 		queryBuilder.WriteString("LEFT OUTER JOIN ")
 		queryBuilder.WriteString(models.TableNames.Payments)
 		queryBuilder.WriteString(" ON (")
@@ -281,6 +287,8 @@ func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEvent
 		queryBuilder.WriteString(strconv.Itoa(paramN))
 		queryBuilder.WriteString(")\n")
 		paramN++
+	} else {
+		queryBuilder.WriteString("FROM pay_per_view_events\n")
 	}
 	queryBuilder.WriteString("WHERE 1=1\n")
 	if ppvQuery.ID != 0 {
@@ -322,7 +330,9 @@ func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEvent
 		paramN++
 	}
 	queryBuilder.WriteString("ORDER BY pay_per_view_events.start, pay_per_view_events.id ")
-	err := queries.Raw(queryBuilder.String(), queryParams...).Bind(ctx, api.db, &results)
+	queryStr := queryBuilder.String()
+	api.logger.Println(queryStr)
+	err := queries.Raw(queryStr, queryParams...).Bind(ctx, api.db, &results)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			api.logger.Printf("error running query in retrieveEventsFromDatabase: %v\n", err)
@@ -346,7 +356,7 @@ func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEvent
 			currentPPVEvent.EventType = event.EventType
 			currentPPVEvent.Start = event.Start
 			currentPPVEvent.End = event.End
-			currentPPVEvent.PriceETH = event.PriceETH
+			currentPPVEvent.PriceEth = event.PriceEth
 			currentPPVEvent.PriceBTC = event.PriceBTC
 			currentPPVEvent.PriceXMR = event.PriceXMR
 			currentPPVEvent.CreatedAt = event.CreatedAt
