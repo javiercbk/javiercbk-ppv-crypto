@@ -48,7 +48,11 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 	if errors.Is(err, echo.ErrNotFound) {
 		response.NewNotFoundResponse(c)
 	} else {
-		response.NewResponseFromError(c, err)
+		if echoErr, ok := err.(*echo.HTTPError); ok {
+			response.NewErrorResponseWithCode(c, echoErr.Code)
+		} else {
+			response.NewResponseFromError(c, err)
+		}
 	}
 }
 

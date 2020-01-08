@@ -1,8 +1,19 @@
+@import "~bulma/sass/utilities/functions";
 $chalk: #f8f8f8;
-$chalk-invert: #080808;
+$chalker: #f9f9f9;
+$chalk-invert: findColorInvert($chalk);
 $deep-blue: #182532;
+$light-blue: #4F5D75;
+$silver: #BFC0C0;
+$ocre: #EF8354;
 
 $background: $deep-blue;
+$background-light: $light-blue;
 $body-background-color: $background;
 $text: $chalk;
+$text-strong: $chalker;
+$label-color: $chalker;
+$input-icon-color: $chalk-invert;
 $footer-background-color: $background;
+$box-background-color: $background-light;
+$box-color: $chalk;

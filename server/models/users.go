@@ -60,14 +60,17 @@ var UserColumns = struct {
 
 // UserRels is where relationship names are stored.
 var UserRels = struct {
-	Payments string
+	Payments         string
+	PermissionsUsers string
 }{
-	Payments: "Payments",
+	Payments:         "Payments",
+	PermissionsUsers: "PermissionsUsers",
 }
 
 // userR is where relationships are stored.
 type userR struct {
-	Payments PaymentSlice
+	Payments         PaymentSlice
+	PermissionsUsers PermissionsUserSlice
 }
 
 // NewStruct creates a new relationship struct
@@ -194,6 +197,27 @@ func (o *User) Payments(mods ...qm.QueryMod) paymentQuery {
 	return query
 }
 
+// PermissionsUsers retrieves all the permissions_user's PermissionsUsers with an executor.
+func (o *User) PermissionsUsers(mods ...qm.QueryMod) permissionsUserQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"permissions_users\".\"user_id\"=?", o.ID),
+	)
+
+	query := PermissionsUsers(queryMods...)
+	queries.SetFrom(query.Query, "\"permissions_users\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"permissions_users\".*"})
+	}
+
+	return query
+}
+
 // LoadPayments allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (userL) LoadPayments(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
@@ -268,6 +292,90 @@ func (userL) LoadPayments(ctx context.Context, e boil.ContextExecutor, singular 
 				local.R.Payments = append(local.R.Payments, foreign)
 				if foreign.R == nil {
 					foreign.R = &paymentR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadPermissionsUsers allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadPermissionsUsers(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		object = maybeUser.(*User)
+	} else {
+		slice = *maybeUser.(*[]*User)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	query := NewQuery(qm.From(`permissions_users`), qm.WhereIn(`user_id in ?`, args...))
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load permissions_users")
+	}
+
+	var resultSlice []*PermissionsUser
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice permissions_users")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on permissions_users")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for permissions_users")
+	}
+
+	if singular {
+		object.R.PermissionsUsers = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &permissionsUserR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.UserID {
+				local.R.PermissionsUsers = append(local.R.PermissionsUsers, foreign)
+				if foreign.R == nil {
+					foreign.R = &permissionsUserR{}
 				}
 				foreign.R.User = local
 				break
@@ -398,6 +506,59 @@ func (o *User) RemovePayments(ctx context.Context, exec boil.ContextExecutor, re
 		}
 	}
 
+	return nil
+}
+
+// AddPermissionsUsers adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.PermissionsUsers.
+// Sets related.R.User appropriately.
+func (o *User) AddPermissionsUsers(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PermissionsUser) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.UserID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"permissions_users\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, permissionsUserPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.DebugMode {
+				fmt.Fprintln(boil.DebugWriter, updateQuery)
+				fmt.Fprintln(boil.DebugWriter, values)
+			}
+
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.UserID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			PermissionsUsers: related,
+		}
+	} else {
+		o.R.PermissionsUsers = append(o.R.PermissionsUsers, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &permissionsUserR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
+		}
+	}
 	return nil
 }
 

@@ -1,9 +1,12 @@
 import { Module } from "vuex";
 import { apiPrefix, GenericAPIResponse, setToken } from "@/lib/http/api";
 import { AppRootState } from "@/store";
+import { User } from "@/models/models";
+import defineAbilitiesFor from "@/lib/user/abilities";
 
-interface JWTToken {
-  token: String;
+interface JWTTokenResponse {
+  token: string;
+  user: User;
 }
 
 export interface LoginState {
@@ -12,23 +15,23 @@ export interface LoginState {
 }
 
 export interface AuthCredentials {
-  username: String;
-  password: String;
+  email: string;
+  password: string;
+  onLoginSuccess?: () => void;
 }
 
 const eventsModule: Module<LoginState, AppRootState> = {
   namespaced: true,
   state: () => ({
-    availableEvents: [],
-    subscribedEvents: [],
     loading: true,
     error: null
   }),
   getters: {
-    loading: s => s.loading
+    loading: s => s.loading,
+    error: s => s.error
   },
   actions: {
-    login: ({ commit }, credentials: AuthCredentials) => {
+    login: ({ commit, dispatch }, credentials: AuthCredentials) => {
       commit("setLoading");
       commit("clearError");
       fetch(`${apiPrefix}/auth`, {
@@ -38,9 +41,19 @@ const eventsModule: Module<LoginState, AppRootState> = {
         .then(response => {
           return response
             .json()
-            .then((responseJSON: GenericAPIResponse<JWTToken>) => {
+            .then((responseJSON: GenericAPIResponse<JWTTokenResponse>) => {
               if (responseJSON.data) {
                 setToken(responseJSON.data.token);
+                const userInSession = responseJSON.data.user;
+                userInSession.ability = defineAbilitiesFor(userInSession);
+                dispatch("session/setUser", userInSession, { root: true });
+                return true;
+              }
+              return false;
+            })
+            .then((success: Boolean) => {
+              if (success && credentials.onLoginSuccess) {
+                credentials.onLoginSuccess();
               }
             });
         })

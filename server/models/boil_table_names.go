@@ -6,12 +6,16 @@ package models
 var TableNames = struct {
 	PayPerViewEvents    string
 	Payments            string
+	Permissions         string
+	PermissionsUsers    string
 	SmartContractEvents string
 	SmartContracts      string
 	Users               string
 }{
 	PayPerViewEvents:    "pay_per_view_events",
 	Payments:            "payments",
+	Permissions:         "permissions",
+	PermissionsUsers:    "permissions_users",
 	SmartContractEvents: "smart_contract_events",
 	SmartContracts:      "smart_contracts",
 	Users:               "users",

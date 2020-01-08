@@ -1,21 +1,21 @@
-let token: String = "";
+let token: string = "";
 
 export const apiPrefix = "/api/v1";
 
 export interface GenericAPIResponse<T> {
-  code: Number;
-  message: String;
+  code: number;
+  message: string;
   error: Boolean;
-  version: String;
+  version: string;
   data?: T;
 }
 
-export const setToken = (tokenStr: String) => {
+export const setToken = (tokenStr: string) => {
   token = tokenStr;
 };
 
 export const fetchAuthenticated = function(
-  endpoint: String,
+  endpoint: string,
   init?: RequestInit
 ): Promise<Response> {
   const requestInit = Object.assign({}, init);

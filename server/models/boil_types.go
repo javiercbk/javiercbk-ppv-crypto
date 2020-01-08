@@ -66,3 +66,10 @@ const (
 	PaymentStatusweakCancelled    = "weakCancelled"
 	PaymentStatusCancelled        = "cancelled"
 )
+
+// Enum values for permission_access
+const (
+	PermissionAccessRead   = "read"
+	PermissionAccessWrite  = "write"
+	PermissionAccessManage = "manage"
+)

@@ -2,6 +2,13 @@
 
 CREATE TYPE crypto_currency AS ENUM ('ETH', 'BTC', 'XMR');
 CREATE TYPE payment_status AS ENUM ('unconfirmed', 'weakConfirmation', 'confirmed', 'weakCancelled', 'cancelled');
+CREATE TYPE permission_access AS ENUM ('read', 'write');
+
+CREATE TABLE permissions(
+    "id" BIGSERIAL NOT NULL PRIMARY KEY,
+    "resource" TEXT NOT NULL,
+    "access" permission_access NOT NULL
+);
 
 CREATE TABLE users(
     id BIGSERIAL NOT NULL PRIMARY KEY,
@@ -18,6 +25,14 @@ CREATE TABLE users(
 );
 
 CREATE UNIQUE INDEX users_email_idx ON users (email);
+
+CREATE TABLE permissions_users(
+    "id" BIGSERIAL NOT NULL PRIMARY KEY,
+    "user_id" BIGINT NOT NULL,
+    "resource" TEXT NOT NULL,
+    "access" permission_access NOT NULL,
+    CONSTRAINT permissions_user_fk FOREIGN KEY (user_id) REFERENCES users (id)
+);
 
 CREATE TABLE pay_per_view_events(
     "id" BIGSERIAL NOT NULL PRIMARY KEY,

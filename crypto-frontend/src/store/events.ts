@@ -2,24 +2,30 @@ import { Module } from "vuex";
 import { PayPerViewEvent, CryptoCurrency } from "@/models/models";
 import { fetchAuthenticated, GenericAPIResponse } from "@/lib/http/api";
 import { AppRootState } from "@/store";
+import { PayPerViewEventProspect } from "@/models/events";
 
 export interface PayPerViewEventState {
   availableEvents: PayPerViewEvent[];
   subscribedEvents: PayPerViewEvent[];
-  loadingEvents: Boolean;
+  event: PayPerViewEvent | null;
+  loadingEvent: boolean;
+  loadingEvents: boolean;
+  eventSaving: boolean;
+  subscribingEvent: boolean;
   errorFetchingEvents: any;
-  subscribingEvent: Boolean;
   errorSubscribingEvent: any;
+  errorSavingEvent: any;
+  errorLoadingEvent: any;
 }
 
 export interface SubscriptionIntent {
-  eventId: Number;
+  eventId: number;
   currency: CryptoCurrency;
-  transactionId: String;
+  transactionId: string;
 }
 
 export interface SubscriptionConfirmed {
-  eventId: Number;
+  eventId: number;
   currency: CryptoCurrency;
   subscribedOn: Date;
 }
@@ -29,10 +35,15 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
   state: () => ({
     availableEvents: [],
     subscribedEvents: [],
+    event: null,
+    loadingEvent: false,
     loadingEvents: false,
+    eventSaving: false,
     errorFetchingEvents: null,
     subscribingEvent: false,
-    errorSubscribingEvent: null
+    errorSubscribingEvent: null,
+    errorSavingEvent: null,
+    errorLoadingEvent: null
   }),
   getters: {
     availableEvents: s => s.availableEvents,
@@ -40,9 +51,28 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
     loadingEvents: s => s.loadingEvents
   },
   actions: {
+    loadEvent: async ({ commit }, eventID: number) => {
+      commit("setEvent", null);
+      commit("setErrorLoadingEvent", null);
+      commit("setErrorSavingEvent", null);
+      commit("setEventLoading", true);
+      try {
+        const response = await fetchAuthenticated(`events/${eventID}`);
+        const responseJSON = (await response.json()) as GenericAPIResponse<
+          PayPerViewEvent
+        >;
+        commit("setEvent", responseJSON.data);
+      } catch (e) {
+        commit("setErrorLoadingEvent", e);
+      } finally {
+        commit("setEventLoading", false);
+      }
+    },
     retrieveEvents: async ({ commit }) => {
-      commit("clearErrorFetchingEvents");
-      commit("setEventsLoading");
+      commit("setAvailableEvents", []);
+      commit("setSubscribedEvents", []);
+      commit("setErrorFetchingEvents", null);
+      commit("setEventsLoading", true);
       try {
         const response = await fetchAuthenticated("events");
         const responseJSON = (await response.json()) as GenericAPIResponse<
@@ -50,21 +80,38 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
         >;
         const available: PayPerViewEvent[] = [];
         const subscribed: PayPerViewEvent[] = [];
-        if (responseJSON.data) {
-          responseJSON.data.forEach(e => {
-            if (e.subscription) {
-              subscribed.push(e);
-            } else {
-              available.push(e);
-            }
-          });
-        }
+        const events = responseJSON.data || [];
+        events.forEach(e => {
+          if (e.subscription) {
+            subscribed.push(e);
+          } else {
+            available.push(e);
+          }
+        });
         commit("setAvailableEvents", available);
         commit("setSubscribedEvents", subscribed);
       } catch (err) {
         commit("setErrorFetchingEvents", err);
       } finally {
-        commit("setEventsLoaded");
+        commit("setEventsLoading", false);
+      }
+    },
+    createEvent: async ({ commit }, payload: PayPerViewEventProspect) => {
+      commit("setEventSaving", true);
+      commit("setErrorSavingEvent", null);
+      try {
+        const response = await fetchAuthenticated("events", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const responseJSON = (await response.json()) as GenericAPIResponse<
+          PayPerViewEvent
+        >;
+        commit("setEvent", responseJSON.data);
+      } catch (e) {
+        commit("setErrorSavingEvent", e);
+      } finally {
+        commit("setEventSaving", false);
       }
     },
     subscribe: async (
@@ -72,8 +119,8 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
       subscriptionIntent: SubscriptionIntent
     ) => {
       if (rootState.session.user.id !== 0) {
-        commit("clearErrorSubscribingEvents");
-        commit("setSubscribingEvent");
+        commit("setErrorSubscribingEvents", null);
+        commit("setSubscribingEvent", true);
         try {
           const response = await fetchAuthenticated(
             `events/${subscriptionIntent.eventId}`,
@@ -94,35 +141,44 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
         } catch (err) {
           commit("setErrorSubscribingEvents", err);
         } finally {
-          commit("setSubscribedEvent");
+          commit("setSubscribingEvent", false);
         }
       }
     }
   },
   mutations: {
+    setEventSaving: (s, payload: boolean) => {
+      s.eventSaving = payload;
+    },
     setAvailableEvents: (s, payload: PayPerViewEvent[]) => {
       s.availableEvents = payload;
     },
     setSubscribedEvents: (s, payload: PayPerViewEvent[]) => {
       s.subscribedEvents = payload;
     },
-    setEventsLoading: s => {
-      s.loadingEvents = true;
+    setEventsLoading: (s, payload: boolean) => {
+      s.loadingEvents = payload;
     },
-    setEventsLoaded: s => {
-      s.loadingEvents = false;
+    setEvent: (s, payload: PayPerViewEvent | null) => {
+      s.event = payload;
+    },
+    setEventLoading: (s, payload: boolean) => {
+      s.loadingEvent = payload;
     },
     setErrorFetchingEvents: (s, payload: any) => {
       s.errorFetchingEvents = payload;
     },
-    clearErrorFetchingEvents: s => {
-      s.errorFetchingEvents = null;
+    setErrorSubscribingEvents: (s, payload: any) => {
+      s.errorSubscribingEvent = payload;
     },
-    clearErrorSubscribingEvents: s => {
-      s.errorSubscribingEvent = null;
+    setErrorLoadingEvent: (s, payload: any) => {
+      s.errorLoadingEvent = payload;
     },
-    setSubscribingEvent: s => {
-      s.subscribingEvent = true;
+    setErrorSavingEvent: (s, payload: any) => {
+      s.errorSavingEvent = payload;
+    },
+    setSubscribingEvent: (s, payload: boolean) => {
+      s.subscribingEvent = payload;
     },
     confirmSubscription: (s, payload: PayPerViewEvent) => {
       const eventIndex = s.availableEvents.findIndex(e => e.id === payload.id);
@@ -132,12 +188,6 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
       } else {
         s.subscribedEvents.push(payload);
       }
-    },
-    setSubscribedEvent: s => {
-      s.subscribingEvent = false;
-    },
-    setErrorSubscribingEvents: (s, payload: any) => {
-      s.errorSubscribingEvent = payload;
     }
   }
 };

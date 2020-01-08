@@ -1,3 +1,5 @@
+import { Ability } from "casl";
+
 export enum CryptoCurrency {
   ETH = "ETH",
   BTC = "BTC",
@@ -11,32 +13,38 @@ export enum PaymentStatus {
 }
 
 export interface Subscription {
-  id: Number;
+  id: number;
   currency: CryptoCurrency;
-  currencyPaymentId?: String;
-  blockHash?: String;
+  currencyPaymentId?: string;
+  blockHash?: string;
   blockTimestamp?: Date;
-  walletAddress?: String;
-  amount: Number;
+  walletAddress?: string;
+  amount: number;
   status: PaymentStatus;
 }
 
 export interface PayPerViewEvent {
-  id: Number;
-  name: String;
-  description: String;
-  eventType: String;
+  id: number;
+  name: string;
+  description: string;
+  eventType: string;
   start: Date;
   end: Date;
-  priceETH: Number;
-  priceBTC: Number;
-  priceXMR: Number;
+  priceETH: number;
+  priceBTC: number;
+  priceXMR: number;
   subscription?: Subscription;
 }
 
+export interface Permission {
+  resource: string;
+  access: string;
+}
+
 export interface User {
-  id: Number;
-  username: String;
-  firstName: String;
-  lastName: String;
+  id: number;
+  firstName: string;
+  lastName: string;
+  permissions: Permission[];
+  ability: Ability;
 }

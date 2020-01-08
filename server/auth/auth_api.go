@@ -62,19 +62,18 @@ type AuthCredentials struct {
 
 // TokenResponse contains a jwt token
 type TokenResponse struct {
-	User  security.JWTUser `json:"user"`
-	Token string           `json:"token"`
+	User  VisibleUser `json:"user"`
+	Token string      `json:"token"`
 }
 
-// VisibleAdmin is the public data of an admin
+// VisibleUser is the public data of an admin
 type VisibleUser struct {
-	ID        int64      `json:"id"`
-	FirstName string     `json:"firstName"`
-	LastName  string     `json:"lastName"`
-	Email     string     `json:"email"`
-	IsAdmin   bool       `json:"isAdmin"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+	ID          int64                       `json:"id"`
+	FirstName   string                      `json:"firstName"`
+	LastName    string                      `json:"lastName"`
+	Permissions models.PermissionsUserSlice `json:"permissions"`
+	CreatedAt   time.Time                   `json:"createdAt"`
+	UpdatedAt   *time.Time                  `json:"updatedAt,omitempty"`
 }
 
 // APIFactory is a function capable of creating an Auth API
@@ -103,6 +102,7 @@ func (api api) AuthenticateUser(ctx context.Context, credentials AuthCredentials
 	tokenResponse := TokenResponse{}
 	user, err := models.Users(
 		qm.Where("email = ?", credentials.Email),
+		qm.Load(models.UserRels.PermissionsUsers),
 	).One(ctx, api.db)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -118,23 +118,26 @@ func (api api) AuthenticateUser(ctx context.Context, credentials AuthCredentials
 	}
 	// Create token
 	token := jwt.New(jwt.SigningMethodHS256)
-	token.Claims = security.JWTEncode(security.JWTUser{
-		ID:        user.ID,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		IsAdmin:   user.IsAdmin,
-	}, time.Minute*20)
-
+	jwtUser := security.JWTUser{
+		ID:          user.ID,
+		FirstName:   user.FirstName,
+		LastName:    user.LastName,
+		Permissions: security.ToPermissionsMap(user.R.PermissionsUsers),
+	}
+	token.Claims = security.JWTEncode(jwtUser, time.Minute*20)
 	t, err := token.SignedString([]byte(api.jwtSecret))
 	if err != nil {
 		api.logger.Printf("error signing token %v\n", err)
 		return tokenResponse, errors.New("error creating token")
 	}
 	tokenResponse.Token = t
-	tokenResponse.User.ID = user.ID
-	tokenResponse.User.FirstName = user.FirstName
-	tokenResponse.User.LastName = user.LastName
-	tokenResponse.User.IsAdmin = user.IsAdmin
+	tokenResponse.User = VisibleUser{
+		ID:          user.ID,
+		FirstName:   user.FirstName,
+		LastName:    user.LastName,
+		Permissions: user.R.PermissionsUsers,
+		CreatedAt:   user.CreatedAt.Time,
+		UpdatedAt:   user.UpdatedAt.Ptr(),
+	}
 	return tokenResponse, nil
-
 }

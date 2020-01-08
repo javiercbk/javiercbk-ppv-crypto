@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/javiercbk/ppv-crypto/server/models"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -23,24 +24,33 @@ func (e MalformedUserError) Error() string {
 	return string(e)
 }
 
+type permission string
+
 const (
-	contextKey    = "jwtUser"
-	userID        = "id"
-	userFirstName = "firstName"
-	userLastName  = "lastName"
-	userIsAdmin   = "isAdmin"
+	contextKey      = "jwtUser"
+	userID          = "id"
+	userFirstName   = "firstName"
+	userLastName    = "lastName"
+	userPermissions = "permissions"
 	// ErrUserNotFound is returned when a jwt token was not found in the request context
 	ErrUserNotFound UserNotFoundError = "user was not found in the request context"
 	// ErrMalformedUser is returned when a user cannot be parsed from the JWT user
 	ErrMalformedUser MalformedUserError = "user data is malformed"
+	// Read is a permission that allows the user to read a resource
+	Read permission = "read"
+	// Write is a permission that allows the user to write a resource
+	Write permission = "write"
 )
+
+// PermissionMap is the user's permission map
+type PermissionMap map[string][]permission
 
 // JWTUser is the data being encoded in the JWT token
 type JWTUser struct {
-	ID        int64  `json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	IsAdmin   string `json:"isAdmin"`
+	ID          int64         `json:"id"`
+	FirstName   string        `json:"firstName"`
+	LastName    string        `json:"lastName"`
+	Permissions PermissionMap `json:"permissions"`
 }
 
 // JWTMiddlewareFactory creates a JWTMiddleware
@@ -68,7 +78,7 @@ func JWTEncode(user JWTUser, d time.Duration) jwt.MapClaims {
 	claims[userID] = user.ID
 	claims[userFirstName] = user.FirstName
 	claims[userLastName] = user.LastName
-	claims[userIsAdmin] = user.IsAdmin
+	claims[userPermissions] = user.Permissions
 	// session lasts only 20 minutes
 	claims["exp"] = time.Now().Add(d).Unix()
 	return claims
@@ -93,4 +103,67 @@ func JWTDecode(c echo.Context, jwtUser *JWTUser) error {
 		}
 	}
 	return err
+}
+
+// CanReadResouceMiddleware returns a middleware that validates if a user can read a resource
+func CanReadResouceMiddleware(jwtUser JWTUser, resouce string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if jwtUser.ID == 0 {
+				return echo.ErrUnauthorized
+			}
+			if _, ok := jwtUser.Permissions[resouce]; ok {
+				// if it has any permission, then it can read the resource
+				return next(c)
+			}
+			return echo.ErrForbidden
+		}
+	}
+}
+
+// CanWriteResouceMiddleware returns a middleware that validates if a user can read/write a resource
+func CanWriteResouceMiddleware(jwtUser JWTUser, resouce string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if jwtUser.ID == 0 {
+				return echo.ErrUnauthorized
+			}
+			if permissions, ok := jwtUser.Permissions[resouce]; ok {
+				// if it has any permission, then it can read the resource
+				canWrite := false
+				for i := range permissions {
+					if permissions[i] == Write {
+						canWrite = true
+						break
+					}
+				}
+				if canWrite {
+					return next(c)
+				}
+			}
+			return echo.ErrForbidden
+		}
+	}
+}
+
+// ToPermissionsMap creates a permissionsMap out of a PermissionsSlice
+func ToPermissionsMap(permissions models.PermissionsUserSlice) PermissionMap {
+	permMap := make(PermissionMap)
+	for i := range permissions {
+		prm := permissions[i]
+		if permMap[prm.Resource] == nil {
+			permMap[prm.Resource] = make([]permission, 1)
+			permMap[prm.Resource][0] = parsePermission(prm.Access)
+		} else {
+			permMap[prm.Resource] = append(permMap[prm.Resource], parsePermission(prm.Access))
+		}
+	}
+	return permMap
+}
+
+func parsePermission(access string) permission {
+	if access == string(Write) {
+		return Write
+	}
+	return Read
 }
