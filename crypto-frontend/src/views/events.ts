@@ -3,11 +3,12 @@ import {
   onBeforeMount,
   computed,
   Ref,
-  ref
+  reactive
 } from "@vue/composition-api";
 import { useState } from "@u3u/vue-hooks";
 import { PayPerViewEvent } from "@/models/models";
 import store from "@/store";
+import { EventListState } from "@/store/events";
 import EventCard from "@/components/events/event-card.vue";
 
 export default createComponent({
@@ -21,21 +22,34 @@ export default createComponent({
 
     const state = {
       ...useState("events", [
-        "loadingEvents",
         "availableEvents",
-        "subscribedEvents"
+        "subscribedEvents",
+        "errorEvents",
+        "eventListState"
       ])
     };
 
-    const hasEvents = ref(
-      computed(
-        () => (state.availableEvents as Ref<PayPerViewEvent[]>).value.length > 0
+    const computedProps = reactive({
+      hasEvents: computed(
+        () =>
+          (state.availableEvents as Ref<PayPerViewEvent[]>).value.length > 0 ||
+          (state.subscribedEvents as Ref<PayPerViewEvent[]>).value.length > 0
+      ),
+      isLoading: computed(
+        () =>
+          (state.eventListState as Ref<EventListState>).value ===
+          EventListState.Loading
+      ),
+      hasError: computed(
+        () =>
+          (state.eventListState as Ref<EventListState>).value ===
+          EventListState.Error
       )
-    );
+    });
 
     return {
       ...state,
-      hasEvents
+      ...computedProps
     };
   }
 });
