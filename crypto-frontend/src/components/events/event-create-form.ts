@@ -27,6 +27,9 @@ const canSave = (state: EventFormState) =>
   stateAllowingSave.indexOf(state) !== -1;
 
 export default createComponent({
+  props: {
+    eventId: Number
+  },
   setup(props: EventCreateFormProps) {
     onBeforeMount(() => {
       if (props.eventId && props.eventId > 0) {

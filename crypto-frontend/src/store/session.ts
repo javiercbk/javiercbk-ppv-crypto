@@ -7,7 +7,7 @@ import { AppRootState } from "@/store";
 import defineAbilitiesFor from "@/lib/user/abilities";
 
 export interface SessionState {
-  user: User;
+  user: User | null;
   loading: Boolean;
   error: any;
   userRequested: Boolean;
@@ -17,14 +17,7 @@ export interface SessionState {
 const sessionModule: Module<SessionState, AppRootState> = {
   namespaced: true,
   state: () => ({
-    user: {
-      id: 0,
-      username: "",
-      firstName: "",
-      lastName: "",
-      permissions: [],
-      ability: new Ability([])
-    },
+    user: null,
     loading: false,
     error: null,
     userRequested: false,
@@ -43,17 +36,20 @@ const sessionModule: Module<SessionState, AppRootState> = {
       commit("setError", null);
       fetch(`${apiPrefix}/users/current`)
         .then(response => {
-          return response
-            .json()
-            .then((responseJSON: GenericAPIResponse<User>) => {
-              if (responseJSON.data) {
-                const userInSession = responseJSON.data;
-                userInSession.ability = defineAbilitiesFor(userInSession);
-                commit("setUser", userInSession);
-              }
-            });
+          if (response.ok) {
+            return response
+              .json()
+              .then((responseJSON: GenericAPIResponse<User>) => {
+                if (responseJSON.data) {
+                  const userInSession = responseJSON.data;
+                  userInSession.ability = defineAbilitiesFor(userInSession);
+                  commit("setUser", userInSession);
+                }
+              });
+          }
+          throw response;
         })
-        .catch(err => {
+        .catch((err: Response) => {
           commit("setError", err);
         })
         .finally(() => {

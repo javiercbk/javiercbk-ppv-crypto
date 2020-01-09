@@ -36,7 +36,7 @@
           <div class="field">
             <button
               class="button is-success"
-              :disabled="$v.$invalid && $v.$dirty"
+              :disabled="isRequesting || ($v.$invalid && $v.$dirty)"
             >
               Login
             </button>

@@ -48,13 +48,13 @@ const router = new VueRouter({
 });
 
 const routerSecurityCheck = (
-  user: User,
+  user: User | null,
   to: Route,
   from: Route,
   isFirstTime: Boolean,
   next: (to?: RawLocation | false | ((vm: Vue) => any) | void) => void
 ) => {
-  let nextResolve = from as any;
+  let nextResolve: Route | boolean | any = true;
   if (user) {
     if (to.meta && to.meta.public && to.name !== EVENTS_ROUTE_NAME) {
       nextResolve = {

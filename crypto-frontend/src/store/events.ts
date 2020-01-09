@@ -24,9 +24,9 @@ export interface PayPerViewEventState {
   availableEvents: PayPerViewEvent[];
   subscribedEvents: PayPerViewEvent[];
   event: PayPerViewEvent | null;
-  errorEvents: any;
-  errorSubscribingEvent: any;
-  errorEvent: any;
+  errorEvents: Response | any | null;
+  errorSubscribingEvent: Response | any | null;
+  errorEvent: Response | any | null;
   eventListState: EventListState;
   eventFormState: EventFormState;
 }
@@ -141,7 +141,7 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
       { commit, rootState },
       subscriptionIntent: SubscriptionIntent
     ) => {
-      if (rootState.session.user.id !== 0) {
+      if (rootState.session.user) {
         commit("setErrorSubscribingEvents", null);
         commit("setSubscribingEvent", true);
         try {

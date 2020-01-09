@@ -9,75 +9,66 @@ interface JWTTokenResponse {
   user: User;
 }
 
+export enum LoginFormState {
+  Ready,
+  Authenticating,
+  Error,
+  Authenticated
+}
+
 export interface LoginState {
-  loading: Boolean;
-  error: any;
+  error: Response | any | null;
+  loginFormState: LoginFormState;
 }
 
 export interface AuthCredentials {
   email: string;
   password: string;
-  onLoginSuccess?: () => void;
 }
 
 const eventsModule: Module<LoginState, AppRootState> = {
   namespaced: true,
   state: () => ({
-    loading: true,
-    error: null
+    error: null,
+    loginFormState: LoginFormState.Ready
   }),
   getters: {
-    loading: s => s.loading,
-    error: s => s.error
+    error: s => s.error,
+    loginFormState: s => s.loginFormState
   },
   actions: {
-    login: ({ commit, dispatch }, credentials: AuthCredentials) => {
-      commit("setLoading");
-      commit("clearError");
-      fetch(`${apiPrefix}/auth`, {
-        method: "POST",
-        body: JSON.stringify(credentials)
-      })
-        .then(response => {
-          return response
-            .json()
-            .then((responseJSON: GenericAPIResponse<JWTTokenResponse>) => {
-              if (responseJSON.data) {
-                setToken(responseJSON.data.token);
-                const userInSession = responseJSON.data.user;
-                userInSession.ability = defineAbilitiesFor(userInSession);
-                dispatch("session/setUser", userInSession, { root: true });
-                return true;
-              }
-              return false;
-            })
-            .then((success: Boolean) => {
-              if (success && credentials.onLoginSuccess) {
-                credentials.onLoginSuccess();
-              }
-            });
-        })
-        .catch(err => {
-          commit("setError", err);
-        })
-        .finally(() => {
-          commit("setLoaded");
+    login: async ({ commit, dispatch }, credentials: AuthCredentials) => {
+      commit("setLoginFormState", LoginFormState.Authenticating);
+      try {
+        const response = await fetch(`${apiPrefix}/auth`, {
+          method: "POST",
+          body: JSON.stringify(credentials)
         });
-      commit("setAvailableEvents");
+        if (response.ok) {
+          const responseJSON: GenericAPIResponse<JWTTokenResponse> = await response.json();
+          if (responseJSON.data) {
+            setToken(responseJSON.data.token);
+            const userInSession = responseJSON.data.user;
+            userInSession.ability = defineAbilitiesFor(userInSession);
+            dispatch("session/setUser", userInSession, { root: true });
+            commit("setLoginFormState", LoginFormState.Authenticated);
+          }
+        } else {
+          commit("setError", response);
+          commit("setLoginFormState", LoginFormState.Error);
+        }
+      } catch (e) {
+        commit("setError", e);
+        commit("setLoginFormState", LoginFormState.Error);
+      }
     }
   },
   mutations: {
-    setLoading: s => {
-      s.loading = true;
-    },
-    setLoaded: s => {
-      s.loading = false;
-    },
     setError: (s, payload: any) => {
       s.error = payload;
     },
-    clearError: s => {
-      s.error = null;
+    setLoginFormState: (s, payload: LoginFormState) => {
+      s.loginFormState = payload;
     }
   }
 };

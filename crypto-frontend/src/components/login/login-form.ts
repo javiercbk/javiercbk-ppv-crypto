@@ -1,16 +1,61 @@
-import { createComponent, ref } from "@vue/composition-api";
-import { useState } from "@u3u/vue-hooks";
+import {
+  createComponent,
+  computed,
+  ref,
+  Ref,
+  watch
+} from "@vue/composition-api";
+import { Route } from "vue-router";
+import { useState, useActions } from "@u3u/vue-hooks";
 const { email, required } = require("@vuelidate/validators");
 const useVuelidate = require("@vuelidate/core").default;
-import store from "@/store";
 import router from "@/router";
-import { AuthCredentials } from "@/store/login";
+import { AuthCredentials, LoginFormState } from "@/store/login";
+
+const stateAllowingSubmit: LoginFormState[] = [
+  LoginFormState.Ready,
+  LoginFormState.Error
+];
+
+const canSubmit = (state: LoginFormState) =>
+  stateAllowingSubmit.indexOf(state) !== -1;
 
 export default createComponent({
   setup() {
-    const storeState = {
-      ...useState("login", ["loading", "error"])
+    const state = {
+      ...useState("login", ["loginFormState", "error"]),
+      ...useState("session", ["savedRoute"])
     };
+
+    state["hasError"] = computed(
+      () =>
+        (state.loginFormState as Ref<LoginFormState>).value ===
+        LoginFormState.Error
+    );
+
+    state["isRequesting"] = computed(
+      () =>
+        (state.loginFormState as Ref<LoginFormState>).value ===
+        LoginFormState.Authenticating
+    );
+
+    const actions = {
+      ...useActions("login", ["login"]),
+      ...useActions("session", ["clearSavedRoute"])
+    };
+
+    watch(() => {
+      const loginFormState = (state.loginFormState as Ref<LoginFormState>)
+        .value;
+      if (loginFormState === LoginFormState.Authenticated) {
+        let nextRoute: any = (state.savedRoute as Ref<Route | null>).value;
+        if (!nextRoute) {
+          nextRoute = { name: "events" };
+        }
+        router.replace(nextRoute);
+        actions.clearSavedRoute();
+      }
+    });
 
     const email = ref("");
     const password = ref("");
@@ -25,25 +70,19 @@ export default createComponent({
 
     const login = function(e: Event) {
       e.preventDefault();
-      if (!$v.$invalid) {
+      const loginFormState = (state.loginFormState as Ref<LoginFormState>)
+        .value;
+      if (!$v.$invalid && canSubmit(loginFormState)) {
         const credentials: AuthCredentials = {
           email: email.value,
-          password: password.value,
-          onLoginSuccess: () => {
-            let nextRoute = store.getters["session/savedRoute"];
-            if (nextRoute) {
-              nextRoute = { name: "events" };
-            }
-            router.replace(nextRoute);
-            store.dispatch("session/clearSavedRoute");
-          }
+          password: password.value
         };
-        store.dispatch("login/login", credentials);
+        actions.login(credentials);
       }
     };
 
     return {
-      ...storeState,
+      ...state,
       email,
       password,
       login,
