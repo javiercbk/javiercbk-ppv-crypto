@@ -72,11 +72,15 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
       commit("setEventState", EventFormState.Loading);
       try {
         const response = await fetchAuthenticated(`events/${eventId}`);
-        const responseJSON = (await response.json()) as GenericAPIResponse<
-          PayPerViewEvent
-        >;
-        commit("setEvent", responseJSON.data);
-        commit("setEventState", EventFormState.Ready);
+        if (response.ok) {
+          const responseJSON = (await response.json()) as GenericAPIResponse<
+            PayPerViewEvent
+          >;
+          commit("setEvent", responseJSON.data);
+          commit("setEventState", EventFormState.Ready);
+        } else {
+          throw response;
+        }
       } catch (e) {
         commit("setErrorEvent", e);
         commit("setEventState", EventFormState.ErrorLoading);
@@ -89,22 +93,26 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
       commit("setEventListState", EventListState.Loading);
       try {
         const response = await fetchAuthenticated("events");
-        const responseJSON = (await response.json()) as GenericAPIResponse<
-          PayPerViewEvent[]
-        >;
-        const available: PayPerViewEvent[] = [];
-        const subscribed: PayPerViewEvent[] = [];
-        const events = responseJSON.data || [];
-        events.forEach(e => {
-          if (e.subscription) {
-            subscribed.push(e);
-          } else {
-            available.push(e);
-          }
-        });
-        commit("setAvailableEvents", available);
-        commit("setSubscribedEvents", subscribed);
-        commit("setEventListState", EventListState.Ready);
+        if (response.ok) {
+          const responseJSON = (await response.json()) as GenericAPIResponse<
+            PayPerViewEvent[]
+          >;
+          const available: PayPerViewEvent[] = [];
+          const subscribed: PayPerViewEvent[] = [];
+          const events = responseJSON.data || [];
+          events.forEach(e => {
+            if (e.subscription) {
+              subscribed.push(e);
+            } else {
+              available.push(e);
+            }
+          });
+          commit("setAvailableEvents", available);
+          commit("setSubscribedEvents", subscribed);
+          commit("setEventListState", EventListState.Ready);
+        } else {
+          throw response;
+        }
       } catch (err) {
         commit("setErrorEvents", err);
         commit("setEventListState", EventListState.Error);

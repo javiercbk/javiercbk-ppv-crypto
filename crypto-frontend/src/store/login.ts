@@ -2,7 +2,7 @@ import { Module } from "vuex";
 import { apiPrefix, GenericAPIResponse, setToken } from "@/lib/http/api";
 import { AppRootState } from "@/store";
 import { User } from "@/models/models";
-import defineAbilitiesFor from "@/lib/user/abilities";
+import { defineAbilitiesFor } from "@/lib/user/abilities";
 
 interface JWTTokenResponse {
   token: string;

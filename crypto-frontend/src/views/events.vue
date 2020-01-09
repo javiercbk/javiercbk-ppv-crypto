@@ -4,6 +4,11 @@
     <h2 class="subtitle has-text-chalk">
       Currently available events to purchase
     </h2>
+    <div class="columns is-centered" v-if="userCanCreate">
+      <button class="button is-success">
+        Create new event
+      </button>
+    </div>
     <div class="columns" v-if="isLoading">
       <b-icon pack="fas" icon="sync-alt" custom-class="fa-spin"> </b-icon>
       Searching for events
@@ -14,13 +19,18 @@
         There are no available events
       </p>
     </div>
-    <div class="columns is-centered is-size-7" v-else-if="hasEvents">
+    <div class="columns is-centered is-size-7" v-else-if="hasError">
       <p>
         <b-icon pack="fas" icon="exclamation-circle"> </b-icon>
         There was an error retrieving events
       </p>
     </div>
-    <div class="columns" v-else></div>
+    <div class="columns" v-else>
+      <p>
+        <b-icon pack="fas" icon="search"> </b-icon>
+        There are no available events
+      </p>
+    </div>
   </div>
 </template>
 

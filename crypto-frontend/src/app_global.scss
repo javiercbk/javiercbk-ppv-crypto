@@ -29,6 +29,10 @@ body {
   align-items: flex-start !important;
 }
 
+.has-text-transparent {
+  color: transparent;
+}
+
 // Import a Google Font
 @import url("https://fonts.googleapis.com/css?family=Nunito:400,700");
 

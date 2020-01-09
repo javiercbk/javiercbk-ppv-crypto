@@ -8,9 +8,11 @@
             <div class="control has-icons-left">
               <input
                 type="email"
-                v-model="email"
+                v-model="userEmail"
                 class="input"
-                :class="{ 'is-danger': $v.email.$invalid && $v.email.$dirty }"
+                :class="{
+                  'is-danger': $v.userEmail.$invalid && $v.userEmail.$dirty
+                }"
               />
               <span class="icon is-small is-left">
                 <b-icon pack="fas" icon="envelope"> </b-icon>
@@ -25,7 +27,7 @@
                 v-model="password"
                 class="input"
                 :class="{
-                  'is-danger': $v.password.$invalid && $v.email.$invalid
+                  'is-danger': $v.password.$invalid && $v.password.$dirty
                 }"
               />
               <span class="icon is-small is-left">
@@ -34,9 +36,20 @@
             </div>
           </div>
           <div class="field">
+            <p
+              class="has-text-centered has-text-weight-semibold"
+              :class="{
+                'has-text-danger': hasError,
+                'has-text-transparent': !hasError
+              }"
+            >
+              Authentication failed
+            </p>
+          </div>
+          <div class="field">
             <button
-              class="button is-success"
-              :disabled="isRequesting || ($v.$invalid && $v.$dirty)"
+              class="button is-success is-fullwidth"
+              :disabled="isRequesting || ($v.$invalid && $v.$anyDirty)"
             >
               Login
             </button>

@@ -4,7 +4,7 @@ import { Ability } from "casl";
 import { User } from "@/models/models";
 import { apiPrefix, GenericAPIResponse } from "@/lib/http/api";
 import { AppRootState } from "@/store";
-import defineAbilitiesFor from "@/lib/user/abilities";
+import { defineAbilitiesFor } from "@/lib/user/abilities";
 
 export interface SessionState {
   user: User | null;

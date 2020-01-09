@@ -1,13 +1,28 @@
+import { computed, Ref } from "@vue/composition-api";
 import { AbilityBuilder, Ability } from "casl";
 import { User } from "@/models/models";
 
-// Alternatively this data can be retrieved from server
-export default function defineAbilitiesFor(user: User) {
+export const defineAbilitiesFor = function(user: User | null) {
   const { rules, can } = AbilityBuilder.extract();
 
-  user.permissions.forEach(({ resource, access }) => {
-    can(resource, access);
-  });
+  if (user && user.permissions) {
+    user.permissions.forEach(({ resource, access }) => {
+      can(resource, access);
+    });
+  }
 
   return new Ability(rules);
-}
+};
+
+export const userHasAccessComputed = (
+  userRef: Ref<User | null>,
+  access: string,
+  resource: string
+) =>
+  computed(() => {
+    const user = userRef.value;
+    if (user && user.ability) {
+      return user.ability.can(access, resource);
+    }
+    return false;
+  });

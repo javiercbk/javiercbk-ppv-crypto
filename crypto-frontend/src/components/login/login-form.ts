@@ -27,21 +27,22 @@ export default createComponent({
       ...useState("session", ["savedRoute"])
     };
 
-    state["hasError"] = computed(
-      () =>
-        (state.loginFormState as Ref<LoginFormState>).value ===
-        LoginFormState.Error
-    );
-
-    state["isRequesting"] = computed(
-      () =>
-        (state.loginFormState as Ref<LoginFormState>).value ===
-        LoginFormState.Authenticating
-    );
-
     const actions = {
       ...useActions("login", ["login"]),
       ...useActions("session", ["clearSavedRoute"])
+    };
+
+    const computedProps = {
+      hasError: computed(
+        () =>
+          (state.loginFormState as Ref<LoginFormState>).value ===
+          LoginFormState.Error
+      ),
+      isRequesting: computed(
+        () =>
+          (state.loginFormState as Ref<LoginFormState>).value ===
+          LoginFormState.Authenticating
+      )
     };
 
     watch(() => {
@@ -57,24 +58,25 @@ export default createComponent({
       }
     });
 
-    const email = ref("");
+    const userEmail = ref("");
     const password = ref("");
 
     const $v = useVuelidate(
       {
-        email: { required, email, $autoDirty: true },
+        userEmail: { required, email, $autoDirty: true },
         password: { required, $autoDirty: true }
       },
-      { email, password }
+      { userEmail, password }
     );
 
     const login = function(e: Event) {
       e.preventDefault();
       const loginFormState = (state.loginFormState as Ref<LoginFormState>)
         .value;
+
       if (!$v.$invalid && canSubmit(loginFormState)) {
         const credentials: AuthCredentials = {
-          email: email.value,
+          email: userEmail.value,
           password: password.value
         };
         actions.login(credentials);
@@ -83,7 +85,8 @@ export default createComponent({
 
     return {
       ...state,
-      email,
+      ...computedProps,
+      userEmail,
       password,
       login,
       $v
