@@ -12,12 +12,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/javiercbk/ppv-crypto/server/auth"
 	"github.com/javiercbk/ppv-crypto/server/event"
 	"github.com/javiercbk/ppv-crypto/server/http/response"
 	"github.com/javiercbk/ppv-crypto/server/http/security"
 
 	"github.com/go-playground/validator/v10"
-
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	gommonLog "github.com/labstack/gommon/log"
@@ -44,11 +44,12 @@ func (cv *customValidator) Validate(i interface{}) error {
 }
 
 func customHTTPErrorHandler(err error, c echo.Context) {
-	// github.com/labstack/echo/v4.HTTPError>(0xc00009d1a0
 	if errors.Is(err, echo.ErrNotFound) {
 		response.NewNotFoundResponse(c)
 	} else {
-		if echoErr, ok := err.(*echo.HTTPError); ok {
+		if errors.Is(err, middleware.ErrJWTMissing) {
+			response.NewUnauthorizedErrorResponse(c)
+		} else if echoErr, ok := err.(*echo.HTTPError); ok {
 			response.NewErrorResponseWithCode(c, echoErr.Code)
 		} else {
 			response.NewResponseFromError(c, err)
@@ -105,6 +106,11 @@ func initRoutes(router *echo.Echo, jwtSecret string, logger *log.Logger, db *sql
 		eventRouter := apiRouter.Group("/events")
 		eventHandler := event.NewHandler(logger, db)
 		eventHandler.Routes(eventRouter, jwtMiddleware, jwtOptionalMiddleware)
+	}
+	{
+		authRouter := apiRouter.Group("/auth")
+		authHandler := auth.NewHandler(logger, db, jwtSecret)
+		authHandler.Routes(authRouter, jwtMiddleware)
 	}
 	// adminsRouter := apiRouter.Group("/admins")
 	// adminsRouter.Use(jwtMiddleware)

@@ -147,7 +147,12 @@ func (api api) RetrieveEvents(ctx context.Context, ppvQuery PPVEventQuery, user 
 
 // CreateEvent creates a pay per view event
 func (api api) CreateEvent(ctx context.Context, ppvEvent *models.PayPerViewEvent) error {
-	err := ppvEvent.Insert(ctx, api.db, boil.Whitelist(
+	tx, err := api.db.BeginTx(ctx, nil)
+	if err != nil {
+		api.logger.Printf("error beginning transaction %v", err)
+		return err
+	}
+	err = ppvEvent.Insert(ctx, tx, boil.Whitelist(
 		models.PayPerViewEventColumns.Name,
 		models.PayPerViewEventColumns.Description,
 		models.PayPerViewEventColumns.EventType,
@@ -160,9 +165,16 @@ func (api api) CreateEvent(ctx context.Context, ppvEvent *models.PayPerViewEvent
 		models.PayPerViewEventColumns.CreatedAt,
 	))
 	if err != nil {
-		api.logger.Printf("error inserting event: %v\n", err)
+		api.logger.Printf("error inserting event: %v", err)
+		return err
 	}
-	return err
+
+	err = tx.Commit()
+	if err != nil {
+		api.logger.Printf("error commiting transaction inserting event: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (api api) RetrieveEvent(ctx context.Context, eventID int64, user *security.JWTUser) (PPVEventAndSubscription, error) {
@@ -331,7 +343,6 @@ func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEvent
 	}
 	queryBuilder.WriteString("ORDER BY pay_per_view_events.start, pay_per_view_events.id ")
 	queryStr := queryBuilder.String()
-	api.logger.Println(queryStr)
 	err := queries.Raw(queryStr, queryParams...).Bind(ctx, api.db, &results)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {

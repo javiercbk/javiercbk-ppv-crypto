@@ -2,6 +2,7 @@ package cryptocurrency
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"log"
 	"math/big"
@@ -11,8 +12,10 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/javiercbk/ppv-crypto/server/cryptocurrency"
@@ -21,6 +24,12 @@ import (
 	"github.com/javiercbk/ppv-crypto/server/models"
 	"github.com/volatiletech/null"
 )
+
+type KeysErr string
+
+func (e KeysErr) Error() string {
+	return string(e)
+}
 
 const (
 	// LogPPVEventStartedHex is the keccak256("PPVEventStarted()")"
@@ -33,6 +42,8 @@ const (
 	LogNewSubscriptionHex = "1e05df24f73db39faa0c2d5d26727d08632debce09833123a69214ba943e07c2"
 	// LogNewUnsubscriptionHex is the keccak256("NewUnsubscription(address,uint256)")
 	LogNewUnsubscriptionHex = "79d9d14aed97c97b8dc663528ec3b03eecb8d467956fc03f37179b188a04efa4"
+	// ErrKeys is returned whenever there is a problem with keys
+	ErrKeys KeysErr = "invalid keys"
 )
 
 var (
@@ -127,7 +138,7 @@ func (w ContractWatcher) SubscribeToEvents(ctx context.Context) error {
 				}
 				ppvEvent := &models.PayPerViewEvent{
 					ID:       w.eventID,
-					PriceETH: null.Int64From(priceChangeEvent.PPVEventPrice.Int64()),
+					PriceEth: null.Int64From(priceChangeEvent.PPVEventPrice.Int64()),
 				}
 				err = w.eventAPI.UpdateEvent(ctx, ppvEvent)
 				if err != nil {
@@ -189,4 +200,58 @@ func NewContractWatcher(client *ethclient.Client, eventAPI event.API, logger *lo
 		logger:          logger,
 		eventAPI:        eventAPI,
 	}
+}
+
+// SmartContractDeployer can deploy smart contracts
+type SmartContractDeployer struct {
+	privateKey  *ecdsa.PrivateKey
+	logger      *log.Logger
+	client      *ethclient.Client
+	fromAddress common.Address
+}
+
+// DeployNewPPVSmartContract deploys a new PPV smart contract
+func (d SmartContractDeployer) DeployNewPPVSmartContract(ctx context.Context, ppvEvent *models.PayPerViewEvent) (string, error) {
+	nonce, err := d.client.PendingNonceAt(context, ppvEvent)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gasPrice, err := d.client.SuggestGasPrice(context)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var contractAddress string
+	auth := bind.NewKeyedTransactor(d.privateKey)
+	auth.Nonce = big.NewInt(int64(nonce))
+	auth.Value = big.NewInt(0) // in wei
+	auth.GasLimit = 0          // in units
+	auth.GasPrice = gasPrice
+	auth.Context = ctx
+	address, tx, instance, err := store.DeployStore(auth, client, input)
+	if err != nil {
+		d.logger.Printf("failed to deploy smart contract %v", err)
+	}
+	return contractAddress, nil
+}
+
+// NewSmartContractDeployer creates a SmartContractDeployer
+func NewSmartContractDeployer(client *ethclient.Client, privateKeyStr string, logger *log.Logger) (SmartContractDeployer, error) {
+	deployer := SmartContractDeployer{}
+	privateKey, err := crypto.HexToECDSA(privateKeyStr)
+	if err != nil {
+		return deployer, ErrKeys
+	}
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		log.Fatal("error casting public key to ECDSA")
+		return deployer, ErrKeys
+	}
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	deployer.privateKey = privateKey
+	deployer.logger = logger
+	deployer.client = client
+	deployer.fromAddress = fromAddress
+	return deployer, nil
 }

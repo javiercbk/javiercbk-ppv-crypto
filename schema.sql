@@ -17,7 +17,6 @@ CREATE TABLE users(
     last_name TEXT NOT NULL,
     password TEXT NOT NULL,
     registration_date TIMESTAMPTZ NOT NULL,
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ,
     CONSTRAINT user_name_cnst CHECK (char_length(first_name) <= 256 AND char_length(last_name) <= 256),

@@ -1,10 +1,10 @@
 <template>
-  <div class="container">
+  <div class="container-fluid">
     <div class="columns is-centered">
-      <div class="column is-5-tablet is-4-desktop is-3-widescreen">
+      <div class="column">
         <form action="" class="box" @submit="createEvent" novalidate>
           <div class="field">
-            <label for="event-form-name" class="label">Email</label>
+            <label for="event-form-name" class="label">Name</label>
             <div class="control has-icons-left">
               <input
                 id="event-form-name"
@@ -48,47 +48,42 @@
               />
             </div>
           </div>
-          <div class="field">
-            <label for="event-form-start" class="label"
-              >Start datetime in UTC</label
+          <b-field label="Start datetime in UTC">
+            <b-datetimepicker
+              id="event-form-start"
+              rounded
+              v-model="start"
+              :datepicker="{ showWeekNumber: false }"
+              :timepicker="{ enableSeconds: false, hourFormat: '12' }"
+              :class="{
+                'is-danger': $v.start.$invalid && $v.start.$dirty
+              }"
+              :datetime-formatter="datetimeFormatter"
+              :datetime-parser="datetimeParser"
+              :disabled="loadingEvent"
             >
-            <div class="control has-icons-left">
-              <b-datetimepicker
-                id="event-form-start"
-                rounded
-                v-model="start"
-                :datepicker="{ showWeekNumber: false }"
-                :timepicker="{ enableSeconds: false, hourFormat: '12' }"
-                :class="{
-                  'is-danger': $v.start.$invalid && $v.start.$dirty
-                }"
-                :disabled="loadingEvent"
-              >
-              </b-datetimepicker>
-            </div>
-          </div>
+            </b-datetimepicker>
+          </b-field>
+          <b-field label="End datetime in UTC">
+            <b-datetimepicker
+              id="event-form-end"
+              rounded
+              v-model="end"
+              :datepicker="{ showWeekNumber: false }"
+              :timepicker="{ enableSeconds: false, hourFormat: '12' }"
+              :min-datetime="start"
+              :class="{
+                'is-danger': $v.end.$invalid && $v.end.$dirty
+              }"
+              :datetime-formatter="datetimeFormatter"
+              :datetime-parser="datetimeParser"
+              :disabled="loadingEvent"
+            ></b-datetimepicker>
+          </b-field>
           <div class="field">
-            <label for="event-form-end" class="label"
-              >End datetime in UTC</label
+            <label for="event-form-btc" class="label"
+              >Price BTC (in satoshi)</label
             >
-            <div class="control has-icons-left">
-              <b-datetimepicker
-                id="event-form-end"
-                rounded
-                v-model="end"
-                :datepicker="{ showWeekNumber: false }"
-                :timepicker="{ enableSeconds: false, hourFormat: '12' }"
-                :min-datetime="start"
-                :class="{
-                  'is-danger': $v.end.$invalid && $v.end.$dirty
-                }"
-                :disabled="loadingEvent"
-              >
-              </b-datetimepicker>
-            </div>
-          </div>
-          <div class="field">
-            <label for="event-form-btc" class="label">Price BTC</label>
             <div class="control has-icons-left">
               <input
                 id="event-form-btc"
@@ -103,7 +98,9 @@
             </div>
           </div>
           <div class="field">
-            <label for="event-form-xmr" class="label">Price XMR</label>
+            <label for="event-form-xmr" class="label"
+              >Price XMR (in piconero)</label
+            >
             <div class="control has-icons-left">
               <input
                 id="event-form-xmr"
@@ -112,6 +109,21 @@
                 class="input"
                 :class="{
                   'is-danger': $v.priceXMR.$invalid && $v.priceXMR.$dirty
+                }"
+                :disabled="loadingEvent"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="event-form-xmr" class="label">Price ETH (in wei)</label>
+            <div class="control has-icons-left">
+              <input
+                id="event-form-eth"
+                type="number"
+                v-model="priceETH"
+                class="input"
+                :class="{
+                  'is-danger': $v.priceETH.$invalid && $v.priceETH.$dirty
                 }"
                 :disabled="loadingEvent"
               />
@@ -138,7 +150,7 @@
           <div class="field">
             <button
               class="button is-success"
-              :disabled="$v.$invalid && $v.$dirty"
+              :disabled="($v.$invalid && $v.$dirty) || saveButtonDisabled"
             >
               Save
             </button>
@@ -149,4 +161,4 @@
   </div>
 </template>
 
-<script lang="ts" src="./event-create-form.ts"></script>
+<script lang="ts" src="./event-edit-form.ts"></script>

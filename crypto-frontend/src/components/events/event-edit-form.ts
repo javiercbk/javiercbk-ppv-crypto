@@ -1,9 +1,9 @@
-import { createComponent, onBeforeMount, ref, Ref } from "@vue/composition-api";
+import { createComponent, ref, Ref, computed } from "@vue/composition-api";
 const { required, minValue, numeric } = require("@vuelidate/validators");
 const useVuelidate = require("@vuelidate/core").default;
 import { useState } from "@u3u/vue-hooks";
+import { datetimeFormatter, datetimeParser } from "@/lib/date/date";
 import store from "@/store";
-import router from "@/router";
 import { ethAddress } from "@/lib/validators";
 import { PayPerViewEvent } from "@/models/models";
 import { PayPerViewEventProspect } from "@/models/events";
@@ -31,14 +31,6 @@ export default createComponent({
     eventId: Number
   },
   setup(props: EventCreateFormProps) {
-    onBeforeMount(() => {
-      if (props.eventId && props.eventId > 0) {
-        store.dispatch("events/loadEvent", props.eventId);
-      } else {
-        store.dispatch("events/clearEvent");
-      }
-    });
-
     const state = {
       ...useState("events", ["event", "eventError", "eventFormState"])
     };
@@ -52,6 +44,7 @@ export default createComponent({
     let initEnd: Date | null = null;
     let initPriceBTC = 0;
     let initPriceXMR = 0;
+    let initPriceETH = 0;
     let initEthContractAddr = "";
 
     if (event) {
@@ -62,6 +55,7 @@ export default createComponent({
       initEnd = event.end;
       initPriceBTC = event.priceBTC;
       initPriceXMR = event.priceXMR;
+      initPriceETH = event.priceETH;
       initEthContractAddr = event.ethContractAddr;
     }
 
@@ -72,6 +66,7 @@ export default createComponent({
     const end = ref<Date>(initEnd);
     const priceBTC = ref(initPriceBTC);
     const priceXMR = ref(initPriceXMR);
+    const priceETH = ref(initPriceETH);
     const ethContractAddr = ref(initEthContractAddr);
 
     const $v = useVuelidate(
@@ -83,6 +78,7 @@ export default createComponent({
         end: { required, minStart, $autoDirty: true },
         priceBTC: { required, numeric, minUnity, $autoDirty: true },
         priceXMR: { required, numeric, minUnity, $autoDirty: true },
+        priceETH: { required, numeric, minUnity, $autoDirty: true },
         ethContractAddr: { required, ethAddress, $autoDirty: true }
       },
       {
@@ -93,6 +89,7 @@ export default createComponent({
         end,
         priceBTC,
         priceXMR,
+        priceETH,
         ethContractAddr
       }
     );
@@ -110,6 +107,7 @@ export default createComponent({
           end: end.value as Date,
           priceBTC: priceBTC.value,
           priceXMR: priceXMR.value,
+          priceETH: priceETH.value,
           ethContractAddr: ethContractAddr.value
         };
         if (props.eventId) {
@@ -119,8 +117,24 @@ export default createComponent({
       }
     };
 
+    const computedProps = {
+      loadingEvent: computed(() => {
+        const eventFormState = (state.eventFormState as Ref<EventFormState>)
+          .value;
+        return (
+          eventFormState === EventFormState.Loading || !canSave(eventFormState)
+        );
+      }),
+      saveButtonDisabled: computed(() => {
+        const eventFormState = (state.eventFormState as Ref<EventFormState>)
+          .value;
+        return !canSave(eventFormState);
+      })
+    };
+
     return {
       ...state,
+      ...computedProps,
       name,
       description,
       eventType,
@@ -128,7 +142,10 @@ export default createComponent({
       end,
       priceBTC,
       priceXMR,
+      priceETH,
       ethContractAddr,
+      datetimeFormatter,
+      datetimeParser,
       $v,
       createEvent
     };

@@ -1,5 +1,7 @@
 @charset "utf-8";
 
+@import "~buefy/src/scss/buefy-build.scss";
+
 @import "./colors.scss";
 
 @import "~bulma/sass/utilities/initial-variables";
@@ -31,6 +33,10 @@ body {
 
 .has-text-transparent {
   color: transparent;
+}
+
+.is-clickable {
+  cursor: pointer;
 }
 
 // Import a Google Font

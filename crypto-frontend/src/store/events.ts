@@ -15,6 +15,7 @@ export enum EventFormState {
   Ready,
   ErrorLoading,
   ErrorSaving,
+  NotFound,
   Saving,
   Saved,
   Created
@@ -66,6 +67,10 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
     eventFormState: s => s.eventFormState
   },
   actions: {
+    notFound: ({ commit }) => {
+      commit("setEvent", null);
+      commit("setEventState", EventFormState.NotFound);
+    },
     loadEvent: async ({ commit }, eventId: number) => {
       commit("setEvent", null);
       commit("setErrorEvent", null);
@@ -78,6 +83,8 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
           >;
           commit("setEvent", responseJSON.data);
           commit("setEventState", EventFormState.Ready);
+        } else if (response.status === 404) {
+          commit("setEventState", EventFormState.NotFound);
         } else {
           throw response;
         }

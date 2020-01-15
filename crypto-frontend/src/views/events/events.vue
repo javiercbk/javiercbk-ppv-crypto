@@ -5,9 +5,12 @@
       Currently available events to purchase
     </h2>
     <div class="columns is-centered" v-if="userCanCreate">
-      <button class="button is-success">
+      <router-link
+        class="button is-success is-clickable"
+        :to="{ name: 'events-create' }"
+      >
         Create new event
-      </button>
+      </router-link>
     </div>
     <div class="columns" v-if="isLoading">
       <b-icon pack="fas" icon="sync-alt" custom-class="fa-spin"> </b-icon>

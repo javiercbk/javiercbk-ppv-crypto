@@ -4,10 +4,9 @@ import { User } from "@/models/models";
 
 export const defineAbilitiesFor = function(user: User | null) {
   const { rules, can } = AbilityBuilder.extract();
-
   if (user && user.permissions) {
     user.permissions.forEach(({ resource, access }) => {
-      can(resource, access);
+      can(access, resource);
     });
   }
 

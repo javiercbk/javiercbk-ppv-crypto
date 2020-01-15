@@ -56,7 +56,7 @@
                 </a>
               </div>
             </div>
-            <div class="navbar-item has-button">
+            <div class="navbar-item has-button" v-if="!isLoggedIn">
               <div class="buttons">
                 <router-link
                   class="button is-chalk is-outlined"
@@ -77,3 +77,4 @@
 </template>
 
 <style lang="scss" scoped src="./header.scss"></style>
+<script lang="ts" src="./header.ts"></script>

@@ -6,6 +6,9 @@ CUR_DIR := $(patsubst %/,%,$(dir $(MKFILE_PATH)))
 
 .PHONY: server
 
+run:
+	go run -ldflags "-X github.com/javiercbk/ppv-crypto/server/http/response.serverVersion=$(BIN_VERSION)" $(CUR_DIR)/server/cmd/server/server.go 
+	
 server:
 	go build -ldflags "-X github.com/javiercbk/ppv-crypto/server/http/response.serverVersion=$(BIN_VERSION)" -o $(CUR_DIR)/binaries/server $(CUR_DIR)/server/cmd/server/server.go 
 

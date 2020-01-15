@@ -5,11 +5,14 @@ import { User } from "@/models/models";
 
 Vue.use(VueRouter);
 
-const EventsComponent: AsyncComponent = () =>
-  import(/* webpackChunkName: "events" */ "../views/events.vue");
+const EventListComponent: AsyncComponent = () =>
+  import(/* webpackChunkName: "events" */ "@/views/events/events.vue");
+
+const EventFormComponent: AsyncComponent = () =>
+  import(/* webpackChunkName: "events-c" */ "@/views/events/event-form.vue");
 
 const LoginComponent: AsyncComponent = () =>
-  import(/* webpackChunkName: "login" */ "../views/login.vue");
+  import(/* webpackChunkName: "login" */ "@/views/login.vue");
 
 export const EVENTS_ROUTE_NAME = "events";
 
@@ -17,7 +20,7 @@ const routes: RouteConfig[] = [
   {
     path: "/",
     name: EVENTS_ROUTE_NAME,
-    component: EventsComponent,
+    component: EventListComponent,
     meta: {
       public: true
     }
@@ -25,7 +28,7 @@ const routes: RouteConfig[] = [
   {
     path: "/events/create",
     name: "events-create",
-    component: EventsComponent,
+    component: EventFormComponent,
     meta: {
       public: false,
       resource: "Event"

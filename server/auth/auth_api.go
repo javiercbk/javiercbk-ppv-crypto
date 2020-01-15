@@ -1,4 +1,4 @@
-package event
+package auth
 
 import (
 	"context"
@@ -42,6 +42,13 @@ func (e BadCredentialsErr) Error() string {
 	return string(e)
 }
 
+// UserNotExistErr is thrown when the user does not exist anymore
+type UserNotExistErr string
+
+func (e UserNotExistErr) Error() string {
+	return string(e)
+}
+
 const (
 	nameConstraint        = "user_name_cnst"
 	emailConstraint       = "user_email_cnst"
@@ -52,10 +59,12 @@ const (
 	ErrEmailTooLong EmailTooLongErr = "email is too long"
 	// ErrBadCredentials is returned when attempting to login with invalid credentials
 	ErrBadCredentials BadCredentialsErr = "bad credentials"
+	// ErrUserNotExist is thrown when the user does not exist anymore
+	ErrUserNotExist UserNotExistErr = "bad credentials"
 )
 
-// AuthCredentials has all the data necesary to authenticate an admin
-type AuthCredentials struct {
+// Credentials has all the data necesary to authenticate an admin
+type Credentials struct {
 	Email    string `json:"email" validate:"required,gt=0,lte=256"`
 	Password string `json:"password" validate:"required,gt=0"`
 }
@@ -81,7 +90,8 @@ type APIFactory func(logger *log.Logger, db *sql.DB, jwtSecret string) API
 
 // API is authentication API interface
 type API interface {
-	AuthenticateUser(ctx context.Context, credentials AuthCredentials) (TokenResponse, error)
+	AuthenticateUser(ctx context.Context, credentials Credentials) (TokenResponse, error)
+	UserInfo(ctx context.Context, userID int64, user *VisibleUser) error
 }
 
 type api struct {
@@ -91,14 +101,16 @@ type api struct {
 }
 
 // NewAPI creates a new authentication API
-func NewAPI(logger *log.Logger, db *sql.DB) API {
+func NewAPI(logger *log.Logger, db *sql.DB, jwtSecret string) API {
 	return api{
-		logger: logger,
-		db:     db,
+		logger:    logger,
+		db:        db,
+		jwtSecret: jwtSecret,
 	}
 }
 
-func (api api) AuthenticateUser(ctx context.Context, credentials AuthCredentials) (TokenResponse, error) {
+// AuthenticateUser authenticates a user and returns a token
+func (api api) AuthenticateUser(ctx context.Context, credentials Credentials) (TokenResponse, error) {
 	tokenResponse := TokenResponse{}
 	user, err := models.Users(
 		qm.Where("email = ?", credentials.Email),
@@ -140,4 +152,24 @@ func (api api) AuthenticateUser(ctx context.Context, credentials AuthCredentials
 		UpdatedAt:   user.UpdatedAt.Ptr(),
 	}
 	return tokenResponse, nil
+}
+
+// UserInfo returns a visible user from a userID
+func (api api) UserInfo(ctx context.Context, userID int64, visibleUser *VisibleUser) error {
+	user, err := models.Users(qm.Where("id = ?", userID), qm.Load(models.UserRels.PermissionsUsers)).One(ctx, api.db)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			api.logger.Printf("user %d does not exist\n", userID)
+			return ErrUserNotExist
+		}
+		api.logger.Printf("error fiding user %v\n", err)
+		return err
+	}
+	visibleUser.ID = user.ID
+	visibleUser.FirstName = user.FirstName
+	visibleUser.LastName = user.LastName
+	visibleUser.Permissions = user.R.PermissionsUsers
+	visibleUser.CreatedAt = user.CreatedAt.Time
+	visibleUser.UpdatedAt = user.UpdatedAt.Ptr()
+	return nil
 }

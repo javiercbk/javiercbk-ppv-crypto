@@ -32,6 +32,7 @@ export interface PayPerViewEvent {
   end: Date;
   priceBTC: number;
   priceXMR: number;
+  priceETH: number;
   ethContractAddr: string;
   subscription?: Subscription;
 }

@@ -7,5 +7,6 @@ export interface PayPerViewEventProspect {
   end: Date;
   priceBTC: number;
   priceXMR: number;
+  priceETH: number;
   ethContractAddr: string;
 }

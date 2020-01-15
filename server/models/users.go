@@ -31,7 +31,6 @@ type User struct {
 	RegistrationDate time.Time `boil:"registration_date" json:"registrationDate" toml:"registrationDate" yaml:"registrationDate"`
 	CreatedAt        null.Time `boil:"created_at" json:"createdAt,omitempty" toml:"createdAt" yaml:"createdAt,omitempty"`
 	UpdatedAt        null.Time `boil:"updated_at" json:"updatedAt,omitempty" toml:"updatedAt" yaml:"updatedAt,omitempty"`
-	IsAdmin          bool      `boil:"is_admin" json:"isAdmin" toml:"isAdmin" yaml:"isAdmin"`
 	R                *userR    `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L                userL     `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
@@ -45,7 +44,6 @@ var UserColumns = struct {
 	RegistrationDate string
 	CreatedAt        string
 	UpdatedAt        string
-	IsAdmin          string
 }{
 	ID:               "id",
 	Email:            "email",
@@ -55,7 +53,6 @@ var UserColumns = struct {
 	RegistrationDate: "registration_date",
 	CreatedAt:        "created_at",
 	UpdatedAt:        "updated_at",
-	IsAdmin:          "is_admin",
 }
 
 // UserRels is where relationship names are stored.
@@ -82,9 +79,9 @@ func (*userR) NewStruct() *userR {
 type userL struct{}
 
 var (
-	userColumns               = []string{"id", "email", "first_name", "last_name", "password", "registration_date", "created_at", "updated_at", "is_admin"}
+	userColumns               = []string{"id", "email", "first_name", "last_name", "password", "registration_date", "created_at", "updated_at"}
 	userColumnsWithoutDefault = []string{"email", "first_name", "last_name", "password", "registration_date", "created_at", "updated_at"}
-	userColumnsWithDefault    = []string{"id", "is_admin"}
+	userColumnsWithDefault    = []string{"id"}
 	userPrimaryKeyColumns     = []string{"id"}
 )
 

@@ -2,6 +2,7 @@ package security
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -75,7 +76,7 @@ func JWTMiddlewareFactory(jwtSecret string, optional bool) echo.MiddlewareFunc {
 // JWTEncode encodes a user into a jwt.MapClaims
 func JWTEncode(user JWTUser, d time.Duration) jwt.MapClaims {
 	claims := jwt.MapClaims{}
-	claims[userID] = user.ID
+	claims[userID] = strconv.FormatInt(user.ID, 10)
 	claims[userFirstName] = user.FirstName
 	claims[userLastName] = user.LastName
 	claims[userPermissions] = user.Permissions
@@ -92,7 +93,12 @@ func JWTDecode(c echo.Context, jwtUser *JWTUser) error {
 		err = ErrUserNotFound
 	} else {
 		claims := user.Claims.(jwt.MapClaims)
-		if jwtUser.ID, ok = claims[userID].(int64); !ok {
+		var idStr string
+		if idStr, ok = claims[userID].(string); !ok {
+			err = ErrMalformedUser
+		}
+		jwtUser.ID, err = strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
 			err = ErrMalformedUser
 		}
 		if jwtUser.FirstName, ok = claims[userFirstName].(string); !ok {
@@ -100,6 +106,23 @@ func JWTDecode(c echo.Context, jwtUser *JWTUser) error {
 		}
 		if jwtUser.LastName, ok = claims[userFirstName].(string); !ok {
 			err = ErrMalformedUser
+		}
+		var permissionMap map[string]interface{}
+		if permissionMap, ok = claims[userPermissions].(map[string]interface{}); !ok {
+			err = ErrMalformedUser
+		}
+		jwtUser.Permissions = make(PermissionMap)
+		for key, val := range permissionMap {
+			arr := val.([]interface{})
+			jwtUser.Permissions[key] = make([]permission, len(arr))
+			for i := range arr {
+				permStr := arr[i].(string)
+				if permStr == string(Write) {
+					jwtUser.Permissions[key][i] = Write
+				} else {
+					jwtUser.Permissions[key][i] = Read
+				}
+			}
 		}
 	}
 	return err

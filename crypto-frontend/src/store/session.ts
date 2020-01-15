@@ -1,8 +1,11 @@
 import { Route } from "vue-router";
 import { Module } from "vuex";
-import { Ability } from "casl";
 import { User } from "@/models/models";
-import { apiPrefix, GenericAPIResponse } from "@/lib/http/api";
+import {
+  apiPrefix,
+  GenericAPIResponse,
+  fetchAuthenticated
+} from "@/lib/http/api";
 import { AppRootState } from "@/store";
 import { defineAbilitiesFor } from "@/lib/user/abilities";
 
@@ -34,7 +37,7 @@ const sessionModule: Module<SessionState, AppRootState> = {
     retrieveUser: ({ commit }) => {
       commit("setLoading", true);
       commit("setError", null);
-      fetch(`${apiPrefix}/users/current`)
+      fetchAuthenticated(`/auth/current`)
         .then(response => {
           if (response.ok) {
             return response

@@ -42,6 +42,9 @@ const eventsModule: Module<LoginState, AppRootState> = {
       try {
         const response = await fetch(`${apiPrefix}/auth`, {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify(credentials)
         });
         if (response.ok) {
