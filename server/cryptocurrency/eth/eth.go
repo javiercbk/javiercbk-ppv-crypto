@@ -1,4 +1,4 @@
-package cryptocurrency
+package eth
 
 import (
 	"context"
@@ -6,9 +6,12 @@ import (
 	"errors"
 	"log"
 	"math/big"
+	"os"
 	"regexp"
-	"strconv"
 	"strings"
+	"time"
+
+	"gopkg.in/eapache/go-resiliency.v1/retrier"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -18,20 +21,32 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/javiercbk/ppv-crypto/server/cryptocurrency"
-	"github.com/javiercbk/ppv-crypto/server/cryptocurrency/eth/smartcontract"
-	"github.com/javiercbk/ppv-crypto/server/event"
-	"github.com/javiercbk/ppv-crypto/server/models"
-	"github.com/volatiletech/null"
+	"github.com/javiercbk/ppv-crypto/server/cryptocurrency/eth/ppvevent"
 )
 
-type KeysErr string
+// InvalidTimeErr is returned when trying to deploy a contract with wrong start or end time
+type InvalidTimeErr string
 
-func (e KeysErr) Error() string {
+func (e InvalidTimeErr) Error() string {
 	return string(e)
 }
 
+// InvalidPriceErr is thrown when trying to deploy a contract with wrong price
+type InvalidPriceErr string
+
+func (e InvalidPriceErr) Error() string {
+	return string(e)
+}
+
+// PPVContractUpdater handles updates in a PPVContract
+type PPVContractUpdater interface {
+	ChangePrice(ctx context.Context, eventID int64, newPrice int64, block BlockMetadata) error
+	NewSubscription(ctx context.Context, eventID int64, newSubscription NewSubscription, block BlockMetadata) error
+	NewUnsubscription(ctx context.Context, eventID int64, newUnsubscription NewUnsubscription, block BlockMetadata) error
+}
+
 const (
+
 	// LogPPVEventStartedHex is the keccak256("PPVEventStarted()")"
 	LogPPVEventStartedHex = "0e10146934a460c3f27a8ca4c63fdad156eed0ae2051edc0c1839268ade6c9ad"
 	// LogPPVEventEndedHex us the keccak256("PPVEventEnded()")
@@ -42,8 +57,10 @@ const (
 	LogNewSubscriptionHex = "1e05df24f73db39faa0c2d5d26727d08632debce09833123a69214ba943e07c2"
 	// LogNewUnsubscriptionHex is the keccak256("NewUnsubscription(address,uint256)")
 	LogNewUnsubscriptionHex = "79d9d14aed97c97b8dc663528ec3b03eecb8d467956fc03f37179b188a04efa4"
-	// ErrKeys is returned whenever there is a problem with keys
-	ErrKeys KeysErr = "invalid keys"
+	// ErrInvalidTime is returned when trying to deploy a contract with wrong start or end time
+	ErrInvalidTime InvalidTimeErr = "contract time is invalid"
+	// ErrInvalidPrice is thrown when trying to deploy a contract with wrong price
+	ErrInvalidPrice InvalidPriceErr = "contract price is invalid"
 )
 
 var (
@@ -89,23 +106,32 @@ func NeedsReconnect(err error) bool {
 	return errors.Is(err, rpc.ErrClientQuit)
 }
 
+// BlockMetadata contains information about the block where a transaction happened
+type BlockMetadata struct {
+	BlockHash   common.Hash
+	BlockNumber uint64
+	TxHash      common.Hash
+	TxNumber    uint64
+}
+
 // ContractWatcher is able to watch a events in smart contracts
 type ContractWatcher struct {
-	contractAddress string
+	contractAddress common.Address
 	eventID         int64
 	client          *ethclient.Client
 	logger          *log.Logger
-	contract        *smartcontract.Smartcontract
-	eventAPI        event.API
+	contract        *ppvevent.Ppvevent
+	updater         PPVContractUpdater
 }
 
 // SubscribeToEvents given a contract address it will read every event until the context is cancelled
 func (w ContractWatcher) SubscribeToEvents(ctx context.Context) error {
-	contractAddress := common.HexToAddress(w.contractAddress)
+	r := retrier.New(retrier.ConstantBackoff(3, 100*time.Millisecond), nil)
+	contractAddress := w.contractAddress
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{contractAddress},
 	}
-	contractAbi, err := abi.JSON(strings.NewReader(string(smartcontract.SmartcontractABI)))
+	contractAbi, err := abi.JSON(strings.NewReader(string(ppvevent.PpveventABI)))
 	if err != nil {
 		w.logger.Printf("error reading smart contract ABI: %v\n", err)
 		return err
@@ -136,14 +162,12 @@ func (w ContractWatcher) SubscribeToEvents(ctx context.Context) error {
 					w.logger.Printf("error unpacking PriceChange event from subscription: %v\n", err)
 					// TODO: store an error signal or some kind of data to re-process this event update
 				}
-				ppvEvent := &models.PayPerViewEvent{
-					ID:       w.eventID,
-					PriceEth: null.Int64From(priceChangeEvent.PPVEventPrice.Int64()),
-				}
-				err = w.eventAPI.UpdateEvent(ctx, ppvEvent)
+				err = r.RunCtx(ctx, func(retrierCtx context.Context) error {
+					return w.updater.ChangePrice(retrierCtx, w.eventID, priceChangeEvent.PPVEventPrice.Int64(), toBlockMetadata(contractLog))
+				})
 				if err != nil {
-					w.logger.Printf("error updating event price: %v\n", err)
-					// TODO: store an error signal or some kind of data to re-process this event update
+					w.logger.Printf("error changing price %v\n", err)
+					// TODO: handle the case where the change price failed three time
 				}
 			case LogNewSubscriptionHex:
 				var newSubscriptionEvent NewSubscription
@@ -152,34 +176,27 @@ func (w ContractWatcher) SubscribeToEvents(ctx context.Context) error {
 					w.logger.Printf("error unpacking NewSubscription event from subscription: %v\n", err)
 					// TODO: store an error signal or some kind of data to re-process this event update
 				}
-				payment := event.PPVEventPayment{
-					EventID:        w.eventID,
-					WalletAddress:  newSubscriptionEvent.Subscriptor.Hex(),
-					Price:          newSubscriptionEvent.Price.Int64(),
-					CryptoCurrency: cryptocurrency.ETH,
-					BlockHash:      contractLog.BlockHash.Hex(),
-					BlockNumber:    strconv.FormatUint(uint64(contractLog.BlockNumber), 16),
-					TxHash:         contractLog.TxHash.Hex(),
-					TxNumber:       strconv.FormatUint(uint64(contractLog.TxIndex), 16),
+				err = r.RunCtx(ctx, func(retrierCtx context.Context) error {
+					return w.updater.NewSubscription(retrierCtx, w.eventID, newSubscriptionEvent, toBlockMetadata(contractLog))
+				})
+				if err != nil {
+					w.logger.Printf("error registering subscription %v\n", err)
+					// TODO: queue the error somewhere to reprocess this event
 				}
-				w.eventAPI.RegisterSubscription(ctx, payment)
 			case LogNewUnsubscriptionHex:
 				var newUnsubscriptionEvent NewUnsubscription
 				err := contractAbi.Unpack(&newUnsubscriptionEvent, "NewUnsubscription", contractLog.Data)
 				if err != nil {
 					w.logger.Printf("error unpacking NewUnsubscription event from subscription: %v\n", err)
+					// TODO: store an error signal or some kind of data to re-process this event update
 				}
-				payment := event.PPVEventPayment{
-					EventID:        w.eventID,
-					WalletAddress:  newUnsubscriptionEvent.Subscriptor.Hex(),
-					Price:          newUnsubscriptionEvent.Price.Int64(),
-					CryptoCurrency: cryptocurrency.ETH,
-					BlockHash:      contractLog.BlockHash.Hex(),
-					BlockNumber:    strconv.FormatUint(uint64(contractLog.BlockNumber), 16),
-					TxHash:         contractLog.TxHash.Hex(),
-					TxNumber:       strconv.FormatUint(uint64(contractLog.TxIndex), 16),
+				err = r.RunCtx(ctx, func(retrierCtx context.Context) error {
+					return w.updater.NewUnsubscription(retrierCtx, w.eventID, newUnsubscriptionEvent, toBlockMetadata(contractLog))
+				})
+				if err != nil {
+					w.logger.Printf("error registering unsubscription %v\n", err)
+					// TODO: queue the error somewhere to reprocess this event
 				}
-				w.eventAPI.RegisterUnsubscription(ctx, payment)
 			default:
 				// on PPVEventStarted do nothing
 			}
@@ -190,16 +207,41 @@ func (w ContractWatcher) SubscribeToEvents(ctx context.Context) error {
 	}
 }
 
+func toBlockMetadata(contractLog types.Log) BlockMetadata {
+	return BlockMetadata{
+		BlockHash:   contractLog.BlockHash,
+		BlockNumber: contractLog.BlockNumber,
+		TxHash:      contractLog.TxHash,
+		TxNumber:    uint64(contractLog.TxIndex),
+	}
+}
+
 // NewContractWatcher creates a new contract watcher
-func NewContractWatcher(client *ethclient.Client, eventAPI event.API, logger *log.Logger, contractAddress string, eventID int64) ContractWatcher {
+func NewContractWatcher(client *ethclient.Client, logger *log.Logger, contractAddress string, eventID int64, updater PPVContractUpdater) (ContractWatcher, error) {
+	address := common.HexToAddress(contractAddress)
+	contract, err := ppvevent.NewPpvevent(address, client)
 	return ContractWatcher{
-		contractAddress: contractAddress,
+		contractAddress: address,
 		eventID:         eventID,
 		client:          client,
-		contract:        smartcontract.NewSmartcontract(common.HexToAddress(contractAddress)),
+		contract:        contract,
 		logger:          logger,
-		eventAPI:        eventAPI,
-	}
+		updater:         updater,
+	}, err
+}
+
+// DeployedContract contains all the information of a recently deployed contract
+type DeployedContract struct {
+	Address  common.Address
+	Tx       types.Transaction
+	PPVEvent *ppvevent.Ppvevent
+}
+
+// ProspectPPVEvent contains all the information to deploy a ppv smart contract
+type ProspectPPVEvent struct {
+	Start time.Time
+	End   time.Time
+	Price int64
 }
 
 // SmartContractDeployer can deploy smart contracts
@@ -211,42 +253,56 @@ type SmartContractDeployer struct {
 }
 
 // DeployNewPPVSmartContract deploys a new PPV smart contract
-func (d SmartContractDeployer) DeployNewPPVSmartContract(ctx context.Context, ppvEvent *models.PayPerViewEvent) (string, error) {
-	nonce, err := d.client.PendingNonceAt(context, ppvEvent)
-	if err != nil {
-		log.Fatal(err)
+func (d *SmartContractDeployer) DeployNewPPVSmartContract(ctx context.Context, prospectEvent ProspectPPVEvent, deployedContract *DeployedContract) error {
+	if !prospectEvent.Start.IsZero() || !prospectEvent.End.IsZero() || prospectEvent.Start.After(prospectEvent.End) {
+		return ErrInvalidTime
 	}
-
-	gasPrice, err := d.client.SuggestGasPrice(context)
-	if err != nil {
-		log.Fatal(err)
+	if prospectEvent.Price <= 0 {
+		return ErrInvalidPrice
 	}
-	var contractAddress string
+	nonce, err := d.client.PendingNonceAt(ctx, d.fromAddress)
+	if err != nil {
+		d.logger.Printf("error getting PendingNonceAt %v", err)
+		return err
+	}
+	gasPrice, err := d.client.SuggestGasPrice(ctx)
+	if err != nil {
+		d.logger.Printf("error getting SuggestGasPrice %v", err)
+		return err
+	}
 	auth := bind.NewKeyedTransactor(d.privateKey)
 	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(0) // in wei
 	auth.GasLimit = 0          // in units
 	auth.GasPrice = gasPrice
 	auth.Context = ctx
-	address, tx, instance, err := store.DeployStore(auth, client, input)
+	eventStart := big.NewInt(prospectEvent.Start.Unix())
+	eventEnd := big.NewInt(prospectEvent.End.Unix())
+	eventPrice := big.NewInt(prospectEvent.Price)
+	newContractAddress, transaction, instance, err := ppvevent.DeployPpvevent(auth, d.client, eventStart, eventEnd, eventPrice)
+	deployedContract.Address = newContractAddress
+	deployedContract.Tx = *transaction
+	deployedContract.PPVEvent = instance
 	if err != nil {
 		d.logger.Printf("failed to deploy smart contract %v", err)
 	}
-	return contractAddress, nil
+	return err
 }
 
 // NewSmartContractDeployer creates a SmartContractDeployer
-func NewSmartContractDeployer(client *ethclient.Client, privateKeyStr string, logger *log.Logger) (SmartContractDeployer, error) {
-	deployer := SmartContractDeployer{}
-	privateKey, err := crypto.HexToECDSA(privateKeyStr)
+func NewSmartContractDeployer(client *ethclient.Client, logger *log.Logger, privateKeyBytes []byte) (*SmartContractDeployer, error) {
+	deployer := &SmartContractDeployer{}
+	// removes the 0x from the private key bytes
+	privateKey, err := crypto.HexToECDSA(string(privateKeyBytes[2:]))
 	if err != nil {
-		return deployer, ErrKeys
+		logger.Printf("error transforming private key to ECDSA: %v", err)
+		os.Exit(1)
 	}
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
 		log.Fatal("error casting public key to ECDSA")
-		return deployer, ErrKeys
+		return deployer, err
 	}
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 	deployer.privateKey = privateKey

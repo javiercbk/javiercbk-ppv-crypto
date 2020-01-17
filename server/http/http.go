@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/javiercbk/ppv-crypto/server/auth"
+	"github.com/javiercbk/ppv-crypto/server/cryptocurrency/eth"
 	"github.com/javiercbk/ppv-crypto/server/event"
 	"github.com/javiercbk/ppv-crypto/server/http/response"
 	"github.com/javiercbk/ppv-crypto/server/http/security"
@@ -58,7 +59,7 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 }
 
 // Serve http connections
-func Serve(cnf Config, logger *log.Logger, db *sql.DB) error {
+func Serve(cnf Config, logger *log.Logger, db *sql.DB, deployer *eth.SmartContractDeployer) error {
 	router := echo.New()
 	router.HTTPErrorHandler = customHTTPErrorHandler
 	router.Validator = &customValidator{validator: validator.New()}
@@ -68,7 +69,7 @@ func Serve(cnf Config, logger *log.Logger, db *sql.DB) error {
 	// set a body limit of 12 megabites
 	router.Use(middleware.BodyLimit(BodyLimit))
 	router.Use(middleware.Gzip())
-	initRoutes(router, cnf.JWTSecret, logger, db)
+	initRoutes(router, db, deployer, logger, cnf.JWTSecret)
 	srv := newServer(router, cnf.Address)
 	go func() {
 		// service connections
@@ -98,13 +99,13 @@ func Serve(cnf Config, logger *log.Logger, db *sql.DB) error {
 	return nil
 }
 
-func initRoutes(router *echo.Echo, jwtSecret string, logger *log.Logger, db *sql.DB) {
+func initRoutes(router *echo.Echo, db *sql.DB, deployer *eth.SmartContractDeployer, logger *log.Logger, jwtSecret string) {
 	jwtOptionalMiddleware := security.JWTMiddlewareFactory(jwtSecret, true)
 	jwtMiddleware := security.JWTMiddlewareFactory(jwtSecret, false)
 	apiRouter := router.Group("/api/v1")
 	{
 		eventRouter := apiRouter.Group("/events")
-		eventHandler := event.NewHandler(logger, db)
+		eventHandler := event.NewHandler(logger, db, deployer)
 		eventHandler.Routes(eventRouter, jwtMiddleware, jwtOptionalMiddleware)
 	}
 	{

@@ -3,6 +3,10 @@ GIT_VERSION := $(shell git rev-parse HEAD)
 BIN_VERSION := $(GIT_VERSION)|$(GIT_DATE)
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 CUR_DIR := $(patsubst %/,%,$(dir $(MKFILE_PATH)))
+PPV_PRIVATE_KEY_1 := $(shell cat $(CUR_DIR)/eth/keys/ppv_private_key_1)
+PPV_PRIVATE_KEY_2 := $(shell cat $(CUR_DIR)/eth/keys/ppv_private_key_2)
+PPV_PRIVATE_KEY_3 := $(shell cat $(CUR_DIR)/eth/keys/ppv_private_key_3)
+
 
 .PHONY: server
 
@@ -44,6 +48,12 @@ test:
 
 # generates the golang binding for the solidity contract
 contract-binding:
-	$(CUR_DIR)/crypto-frontend/node_modules/.bin/solcjs --abi $(CUR_DIR)/ppv-contract/contracts/PPVEvent.sol
-	abigen --abi="ppv-contract_contracts_PPVEvent_sol_PPVEvent.abi" --pkg="smartcontract" --out="$(CUR_DIR)/server/cryptocurrency/eth/smartcontract/ppv-event.go"
-	rm ppv-contract_contracts_PPVEvent_sol_PPVEvent.abi
+	cd $(CUR_DIR)
+	$(CUR_DIR)/crypto-frontend/node_modules/.bin/solcjs --optimize --abi ./ppv-contract/contracts/PPVEvent.sol
+	$(CUR_DIR)/crypto-frontend/node_modules/.bin/solcjs --optimize --bin ./ppv-contract/contracts/PPVEvent.sol
+	abigen --abi="__ppv-contract_contracts_PPVEvent_sol_PPVEvent.abi" --pkg="ppvevent" --out="$(CUR_DIR)/server/cryptocurrency/eth/ppvevent/ppv-event.go" --bin="__ppv-contract_contracts_PPVEvent_sol_PPVEvent.bin"
+	rm ./*ppv-contract_contracts_PPVEvent_sol_*
+
+start-docker-stack:
+	cd $(CUR_DIR)
+	PPV_PRIVATE_KEY_1=$(PPV_PRIVATE_KEY_1) PPV_PRIVATE_KEY_2=$(PPV_PRIVATE_KEY_2) PPV_PRIVATE_KEY_3=$(PPV_PRIVATE_KEY_3) docker-compose up

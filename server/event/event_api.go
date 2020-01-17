@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/javiercbk/ppv-crypto/server/cryptocurrency"
+	"github.com/javiercbk/ppv-crypto/server/cryptocurrency/eth"
 	"github.com/javiercbk/ppv-crypto/server/http/security"
 	"github.com/javiercbk/ppv-crypto/server/models"
+	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
 	"github.com/volatiletech/sqlboiler/queries/qm"
@@ -40,7 +42,7 @@ const (
 )
 
 // APIFactory is a function capable of creating an Event API
-type APIFactory func(logger *log.Logger, db *sql.DB) API
+type APIFactory func(logger *log.Logger, db *sql.DB, deployer *eth.SmartContractDeployer) API
 
 // PPVEventAndSubscription an event containing the user payments
 type PPVEventAndSubscription struct {
@@ -124,15 +126,17 @@ type API interface {
 }
 
 type api struct {
-	logger *log.Logger
-	db     *sql.DB
+	logger   *log.Logger
+	db       *sql.DB
+	deployer *eth.SmartContractDeployer
 }
 
 // NewAPI creates a new authentication API
-func NewAPI(logger *log.Logger, db *sql.DB) API {
+func NewAPI(logger *log.Logger, db *sql.DB, deployer *eth.SmartContractDeployer) API {
 	return api{
-		logger: logger,
-		db:     db,
+		logger:   logger,
+		db:       db,
+		deployer: deployer,
 	}
 }
 
@@ -161,14 +165,33 @@ func (api api) CreateEvent(ctx context.Context, ppvEvent *models.PayPerViewEvent
 		models.PayPerViewEventColumns.PriceEth,
 		models.PayPerViewEventColumns.PriceBTC,
 		models.PayPerViewEventColumns.PriceXMR,
-		models.PayPerViewEventColumns.EthContractAddr,
 		models.PayPerViewEventColumns.CreatedAt,
 	))
 	if err != nil {
 		api.logger.Printf("error inserting event: %v", err)
 		return err
 	}
-
+	if ppvEvent.Start.Valid && ppvEvent.End.Valid && ppvEvent.PriceEth.Valid {
+		deployedContract := eth.DeployedContract{}
+		prospectEvent := eth.ProspectPPVEvent{
+			Start: ppvEvent.Start.Time,
+			End:   ppvEvent.End.Time,
+			Price: ppvEvent.PriceEth.Int64,
+		}
+		err = api.deployer.DeployNewPPVSmartContract(ctx, prospectEvent, &deployedContract)
+		if err != nil {
+			defer tx.Rollback()
+			api.logger.Printf("error deploying smart contract: %v", err)
+			return err
+		}
+		contractAddress := deployedContract.Address.Hex()
+		ppvEvent.EthContractAddr = null.StringFrom(contractAddress)
+		_, err = ppvEvent.Update(ctx, tx, boil.Whitelist(models.PayPerViewEventColumns.EthContractAddr))
+		if err != nil {
+			api.logger.Printf("error updating smart contract with address '%s', error: %v", contractAddress, err)
+			// since the contract is already deployed we do not want to return the error and roll back the whole thing
+		}
+	}
 	err = tx.Commit()
 	if err != nil {
 		api.logger.Printf("error commiting transaction inserting event: %v", err)

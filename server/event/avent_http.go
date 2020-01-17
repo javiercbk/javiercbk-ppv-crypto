@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/javiercbk/ppv-crypto/server/cryptocurrency/eth"
 	"github.com/javiercbk/ppv-crypto/server/http/response"
 	"github.com/javiercbk/ppv-crypto/server/http/security"
 	"github.com/javiercbk/ppv-crypto/server/models"
@@ -40,14 +41,16 @@ type ProspectEvent struct {
 type Handler struct {
 	logger     *log.Logger
 	db         *sql.DB
+	deployer   *eth.SmartContractDeployer
 	apiFactory APIFactory
 }
 
 // NewHandler creates a handler for the game route
-func NewHandler(logger *log.Logger, db *sql.DB) Handler {
+func NewHandler(logger *log.Logger, db *sql.DB, deployer *eth.SmartContractDeployer) Handler {
 	return Handler{
 		logger:     logger,
 		db:         db,
+		deployer:   deployer,
 		apiFactory: NewAPI,
 	}
 }
@@ -84,7 +87,7 @@ func (h Handler) retrieveEventList(c echo.Context) error {
 		h.logger.Printf("validation error %v\n", err)
 		return response.NewBadRequestResponse(c, err.Error())
 	}
-	api := h.apiFactory(h.logger, h.db)
+	api := h.apiFactory(h.logger, h.db, h.deployer)
 	events, err := api.RetrieveEvents(ctx, ppvQuery, jwtUser)
 	if err != nil {
 		h.logger.Printf("error retrieving events %v\n", err)
@@ -110,7 +113,7 @@ func (h Handler) createEvent(c echo.Context) error {
 		h.logger.Printf("validation error %v\n", err)
 		return response.NewBadRequestResponse(c, err.Error())
 	}
-	api := h.apiFactory(h.logger, h.db)
+	api := h.apiFactory(h.logger, h.db, h.deployer)
 	ppvEvent := &models.PayPerViewEvent{}
 	err = api.CreateEvent(ctx, ppvEvent)
 	if err != nil {
@@ -137,7 +140,7 @@ func (h Handler) retrieveEvent(c echo.Context) error {
 		jwtUser = nil
 		err = nil
 	}
-	api := h.apiFactory(h.logger, h.db)
+	api := h.apiFactory(h.logger, h.db, h.deployer)
 	event, err := api.RetrieveEvent(ctx, eventID, jwtUser)
 	if err != nil {
 		if errors.Is(err, ErrInexistentEvent) {
@@ -176,7 +179,7 @@ func (h Handler) retrievePayments(c echo.Context) error {
 	if err != nil {
 		return response.NewUnauthorizedErrorResponse(c)
 	}
-	api := h.apiFactory(h.logger, h.db)
+	api := h.apiFactory(h.logger, h.db, h.deployer)
 	payments, err := api.RetrievePaymentStatus(ctx, eventID, jwtUser)
 	return response.NewSuccessResponse(c, payments)
 }

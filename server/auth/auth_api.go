@@ -136,7 +136,7 @@ func (api api) AuthenticateUser(ctx context.Context, credentials Credentials) (T
 		LastName:    user.LastName,
 		Permissions: security.ToPermissionsMap(user.R.PermissionsUsers),
 	}
-	token.Claims = security.JWTEncode(jwtUser, time.Minute*20)
+	token.Claims = security.JWTEncode(jwtUser, time.Hour*1)
 	t, err := token.SignedString([]byte(api.jwtSecret))
 	if err != nil {
 		api.logger.Printf("error signing token %v\n", err)
