@@ -4,10 +4,11 @@ const useVuelidate = require("@vuelidate/core").default;
 import { useState } from "@u3u/vue-hooks";
 import { datetimeFormatter, datetimeParser } from "@/lib/date/date";
 import store from "@/store";
+import router from "@/router";
 import { ethAddress } from "@/lib/validators";
 import { PayPerViewEvent } from "@/models/models";
 import { PayPerViewEventProspect } from "@/models/events";
-import { EventFormState } from "@/store/events";
+import { EventFormState, EVENT_PARAM_NAME } from "@/store/events";
 
 const minUnity = minValue(1);
 const minStart = minValue("start");
@@ -59,6 +60,8 @@ export default createComponent({
       initEthContractAddr = event.ethContractAddr;
     }
 
+    const usDollars = ref(0.0);
+
     const name = ref(initName);
     const description = ref(initDescription);
     const eventType = ref(initEventType);
@@ -78,8 +81,7 @@ export default createComponent({
         end: { required, minStart, $autoDirty: true },
         priceBTC: { required, numeric, minUnity, $autoDirty: true },
         priceXMR: { required, numeric, minUnity, $autoDirty: true },
-        priceETH: { required, numeric, minUnity, $autoDirty: true },
-        ethContractAddr: { required, ethAddress, $autoDirty: true }
+        priceETH: { required, numeric, minUnity, $autoDirty: true }
       },
       {
         name,
@@ -89,10 +91,38 @@ export default createComponent({
         end,
         priceBTC,
         priceXMR,
-        priceETH,
-        ethContractAddr
+        priceETH
       }
     );
+
+    const computedProps = {
+      loadingEvent: computed(() => {
+        const eventFormState = (state.eventFormState as Ref<EventFormState>)
+          .value;
+        return (
+          eventFormState === EventFormState.Loading || !canSave(eventFormState)
+        );
+      }),
+      saveButtonDisabled: computed(() => {
+        const eventFormState = (state.eventFormState as Ref<EventFormState>)
+          .value;
+        return !canSave(eventFormState);
+      }),
+      isEdition: computed(() => {
+        const eventId = router.currentRoute.params[EVENT_PARAM_NAME];
+        const eventFormState = (state.eventFormState as Ref<EventFormState>)
+          .value;
+        return (
+          eventFormState !== EventFormState.NotFound &&
+          eventId &&
+          eventId.length
+        );
+      })
+    };
+
+    const estimateCryptoValues = async function(e: Event) {
+      e.preventDefault();
+    };
 
     const createEvent = async function(e: Event) {
       e.preventDefault();
@@ -107,29 +137,13 @@ export default createComponent({
           end: end.value as Date,
           priceBTC: priceBTC.value,
           priceXMR: priceXMR.value,
-          priceETH: priceETH.value,
-          ethContractAddr: ethContractAddr.value
+          priceETH: priceETH.value
         };
         if (props.eventId) {
           payPerViewProspect.id = props.eventId;
         }
         await store.dispatch("events/saveEvent", payPerViewProspect);
       }
-    };
-
-    const computedProps = {
-      loadingEvent: computed(() => {
-        const eventFormState = (state.eventFormState as Ref<EventFormState>)
-          .value;
-        return (
-          eventFormState === EventFormState.Loading || !canSave(eventFormState)
-        );
-      }),
-      saveButtonDisabled: computed(() => {
-        const eventFormState = (state.eventFormState as Ref<EventFormState>)
-          .value;
-        return !canSave(eventFormState);
-      })
     };
 
     return {
@@ -143,11 +157,13 @@ export default createComponent({
       priceBTC,
       priceXMR,
       priceETH,
+      usDollars,
       ethContractAddr,
       datetimeFormatter,
       datetimeParser,
       $v,
-      createEvent
+      createEvent,
+      estimateCryptoValues
     };
   }
 });

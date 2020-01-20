@@ -4,6 +4,8 @@ import { fetchAuthenticated, GenericAPIResponse } from "@/lib/http/api";
 import { AppRootState } from "@/store";
 import { PayPerViewEventProspect } from "@/models/events";
 
+export const EVENT_PARAM_NAME = "eventId";
+
 export enum EventListState {
   Loading,
   Ready,

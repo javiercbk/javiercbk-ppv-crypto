@@ -9,9 +9,7 @@ import EventEditForm from "@/components/events/event-edit-form.vue";
 import NotFound from "@/components/not-found.vue";
 import store from "@/store";
 import router from "@/router";
-import { EventFormState } from "@/store/events";
-
-const EVENT_PARAM_NAME = "eventId";
+import { EventFormState, EVENT_PARAM_NAME } from "@/store/events";
 
 export default createComponent({
   components: {

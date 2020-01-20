@@ -129,7 +129,7 @@
               />
             </div>
           </div>
-          <div class="field">
+          <div class="field" v-if="isEdition">
             <label for="event-form-smart-contract" class="label"
               >ETH smart contract address</label
             >
@@ -139,11 +139,7 @@
                 type="number"
                 v-model="ethContractAddr"
                 class="input"
-                :class="{
-                  'is-danger':
-                    $v.ethContractAddr.$invalid && $v.ethContractAddr.$dirty
-                }"
-                :disabled="loadingEvent"
+                disabled
               />
             </div>
           </div>
