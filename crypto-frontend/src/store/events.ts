@@ -3,6 +3,7 @@ import { PayPerViewEvent, CryptoCurrency } from "@/models/models";
 import { fetchAuthenticated, GenericAPIResponse } from "@/lib/http/api";
 import { AppRootState } from "@/store";
 import { PayPerViewEventProspect } from "@/models/events";
+import { CryptoCurrencyValues, usdToCrypto } from "@/lib/cryptocurrency";
 
 export const EVENT_PARAM_NAME = "eventId";
 
@@ -17,15 +18,27 @@ export enum EventFormState {
   Ready,
   ErrorLoading,
   ErrorSaving,
+  EstimatingPrice,
   NotFound,
   Saving,
   Saved,
   Created
 }
 
+const stateAllowingSave: EventFormState[] = [
+  EventFormState.Created,
+  EventFormState.ErrorSaving,
+  EventFormState.Ready,
+  EventFormState.Saved
+];
+
+export const isStoreEventReady = (state: EventFormState) =>
+  stateAllowingSave.indexOf(state) !== -1;
+
 export interface PayPerViewEventState {
   availableEvents: PayPerViewEvent[];
   subscribedEvents: PayPerViewEvent[];
+  estimatedPrice: CryptoCurrencyValues;
   event: PayPerViewEvent | null;
   errorEvents: Response | any | null;
   errorSubscribingEvent: Response | any | null;
@@ -51,6 +64,11 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
   state: () => ({
     availableEvents: [],
     subscribedEvents: [],
+    estimatedPrice: {
+      satoshi: 0,
+      piconero: 0,
+      wei: 0
+    },
     event: null,
     errorEvents: null,
     errorSubscribingEvent: null,
@@ -71,12 +89,27 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
   actions: {
     notFound: ({ commit }) => {
       commit("setEvent", null);
-      commit("setEventState", EventFormState.NotFound);
+      commit("setEventFormState", EventFormState.NotFound);
+    },
+    estimateEventPrice: async ({ commit, state }, priceUsDollar: number) => {
+      const currentState = state.eventFormState;
+      if (isStoreEventReady(currentState)) {
+        commit("setEventFormState", EventFormState.EstimatingPrice);
+        try {
+          const dollarValue = priceUsDollar;
+          if (dollarValue > 0) {
+            const cryptoCurrencyValues = await usdToCrypto(dollarValue);
+            commit("setEstimatedPrice", cryptoCurrencyValues);
+          }
+        } finally {
+          commit("setEventFormState", currentState);
+        }
+      }
     },
     loadEvent: async ({ commit }, eventId: number) => {
       commit("setEvent", null);
       commit("setErrorEvent", null);
-      commit("setEventState", EventFormState.Loading);
+      commit("setEventFormState", EventFormState.Loading);
       try {
         const response = await fetchAuthenticated(`events/${eventId}`);
         if (response.ok) {
@@ -84,15 +117,15 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
             PayPerViewEvent
           >;
           commit("setEvent", responseJSON.data);
-          commit("setEventState", EventFormState.Ready);
+          commit("setEventFormState", EventFormState.Ready);
         } else if (response.status === 404) {
-          commit("setEventState", EventFormState.NotFound);
+          commit("setEventFormState", EventFormState.NotFound);
         } else {
           throw response;
         }
       } catch (e) {
         commit("setErrorEvent", e);
-        commit("setEventState", EventFormState.ErrorLoading);
+        commit("setEventFormState", EventFormState.ErrorLoading);
       }
     },
     retrieveEvents: async ({ commit }) => {
@@ -128,7 +161,7 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
       }
     },
     saveEvent: async ({ commit }, payload: PayPerViewEventProspect) => {
-      commit("setEventState", EventFormState.Saving);
+      commit("setEventFormState", EventFormState.Saving);
       commit("setErrorEvent", null);
       let nextSuccessState = payload.id
         ? EventFormState.Saved
@@ -142,16 +175,19 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
         }
         const response = await fetchAuthenticated(url, {
           method,
+          headers: {
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify(payload)
         });
         const responseJSON = (await response.json()) as GenericAPIResponse<
           PayPerViewEvent
         >;
         commit("setEvent", responseJSON.data);
-        commit("setEventState", nextSuccessState);
+        commit("setEventFormState", nextSuccessState);
       } catch (e) {
         commit("setErrorEvent", e);
-        commit("setEventState", EventFormState.ErrorSaving);
+        commit("setEventFormState", EventFormState.ErrorSaving);
       }
     },
     subscribe: async (
@@ -187,9 +223,13 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
     },
     clearEvent: ({ commit }) => {
       commit("setEvent", null);
-      commit("setErrorLoadingEvent", null);
-      commit("setErrorSavingEvent", null);
-      commit("setEventLoading", false);
+      commit("setEstimatedPrice", {
+        satoshi: 0,
+        piconero: 0,
+        wei: 0
+      });
+      commit("setErrorEvent", null);
+      commit("setEventFormState", EventFormState.Ready);
     }
   },
   mutations: {
@@ -198,6 +238,9 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
     },
     setSubscribedEvents: (s, payload: PayPerViewEvent[]) => {
       s.subscribedEvents = payload;
+    },
+    setEstimatedPrice: (s, payload: CryptoCurrencyValues) => {
+      s.estimatedPrice = payload;
     },
     setEvent: (s, payload: PayPerViewEvent | null) => {
       s.event = payload;

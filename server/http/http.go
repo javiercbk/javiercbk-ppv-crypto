@@ -131,7 +131,7 @@ func newServer(handler http.Handler, address string) *http.Server {
 		Addr: address,
 		// we allow 60 seconds of read timeout for long polling
 		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 5 * time.Second,
+		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 		TLSConfig:    tlsConfig,
 		Handler:      handler,

@@ -12,6 +12,7 @@ import (
 	"github.com/javiercbk/ppv-crypto/server/http/security"
 	"github.com/javiercbk/ppv-crypto/server/models"
 	"github.com/labstack/echo/v4"
+	"github.com/volatiletech/null"
 )
 
 const (
@@ -34,7 +35,7 @@ type ProspectEvent struct {
 	PriceETH        int64     `json:"priceETH" validate:"required"`
 	PriceBTC        int64     `json:"priceBTC" validate:"required"`
 	PriceXMR        int64     `json:"priceXMR" validate:"required"`
-	EthContractAddr string    `json:"ethContractAddr" validate:"required,gt=0"`
+	EthContractAddr string    `json:"ethContractAddr"`
 }
 
 // Handler is a group of handlers within a route.
@@ -71,7 +72,7 @@ func (h Handler) retrieveEventList(c echo.Context) error {
 	err := security.JWTDecode(c, jwtUser)
 	if err != nil {
 		if !errors.Is(err, security.ErrUserNotFound) {
-			h.logger.Printf("could not parse user%v\n", err)
+			h.logger.Printf("could not parse user %v\n", err)
 			return response.NewUnauthorizedErrorResponse(c)
 		}
 		jwtUser = nil
@@ -113,8 +114,19 @@ func (h Handler) createEvent(c echo.Context) error {
 		h.logger.Printf("validation error %v\n", err)
 		return response.NewBadRequestResponse(c, err.Error())
 	}
+	// make sure that the EthContractAddr is empty
+	prospectEvent.EthContractAddr = ""
 	api := h.apiFactory(h.logger, h.db, h.deployer)
-	ppvEvent := &models.PayPerViewEvent{}
+	ppvEvent := &models.PayPerViewEvent{
+		Name:        prospectEvent.Name,
+		Description: prospectEvent.Description,
+		EventType:   prospectEvent.EventType,
+		Start:       null.TimeFrom(prospectEvent.Start),
+		End:         null.TimeFrom(prospectEvent.End),
+		PriceEth:    null.Int64From(prospectEvent.PriceETH),
+		PriceBTC:    null.Int64From(prospectEvent.PriceBTC),
+		PriceXMR:    null.Int64From(prospectEvent.PriceXMR),
+	}
 	err = api.CreateEvent(ctx, ppvEvent)
 	if err != nil {
 		h.logger.Printf("error creating event %v\n", err)

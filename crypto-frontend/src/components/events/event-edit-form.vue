@@ -12,7 +12,7 @@
                 v-model="name"
                 class="input"
                 :class="{ 'is-danger': $v.name.$invalid && $v.name.$dirty }"
-                :disabled="loadingEvent"
+                :disabled="!isReady"
               />
             </div>
           </div>
@@ -29,7 +29,7 @@
                 :class="{
                   'is-danger': $v.description.$invalid && $v.description.$dirty
                 }"
-                :disabled="loadingEvent"
+                :disabled="!isReady"
               ></textarea>
             </div>
           </div>
@@ -44,7 +44,7 @@
                 :class="{
                   'is-danger': $v.eventType.$invalid && $v.eventType.$dirty
                 }"
-                :disabled="loadingEvent"
+                :disabled="!isReady"
               />
             </div>
           </div>
@@ -60,7 +60,7 @@
               }"
               :datetime-formatter="datetimeFormatter"
               :datetime-parser="datetimeParser"
-              :disabled="loadingEvent"
+              :disabled="!isReady"
             >
             </b-datetimepicker>
           </b-field>
@@ -77,9 +77,33 @@
               }"
               :datetime-formatter="datetimeFormatter"
               :datetime-parser="datetimeParser"
-              :disabled="loadingEvent"
+              :disabled="!isReady"
             ></b-datetimepicker>
           </b-field>
+          <label for="event-form-us-dollar" class="label"
+            >Set value according to US Dollar</label
+          >
+          <div class="field has-addons">
+            <div class="control">
+              <input
+                id="event-form-us-dollar"
+                type="number"
+                v-model="usDollars"
+                class="input"
+                min="0"
+                :disabled="!isReady"
+              />
+            </div>
+            <div class="control">
+              <button
+                class="button"
+                :class="{ 'is-loading': !isReady }"
+                @click="estimateCryptoValues"
+              >
+                Estimate
+              </button>
+            </div>
+          </div>
           <div class="field">
             <label for="event-form-btc" class="label"
               >Price BTC (in satoshi)</label
@@ -93,7 +117,7 @@
                 :class="{
                   'is-danger': $v.priceBTC.$invalid && $v.priceBTC.$dirty
                 }"
-                :disabled="loadingEvent"
+                :disabled="!isReady"
               />
             </div>
           </div>
@@ -110,7 +134,7 @@
                 :class="{
                   'is-danger': $v.priceXMR.$invalid && $v.priceXMR.$dirty
                 }"
-                :disabled="loadingEvent"
+                :disabled="!isReady"
               />
             </div>
           </div>
@@ -125,7 +149,7 @@
                 :class="{
                   'is-danger': $v.priceETH.$invalid && $v.priceETH.$dirty
                 }"
-                :disabled="loadingEvent"
+                :disabled="!isReady"
               />
             </div>
           </div>
@@ -146,7 +170,8 @@
           <div class="field">
             <button
               class="button is-success"
-              :disabled="($v.$invalid && $v.$dirty) || saveButtonDisabled"
+              :class="{ 'is-loading': !isReady }"
+              :disabled="($v.$invalid && $v.$dirty) || !isReady"
             >
               Save
             </button>

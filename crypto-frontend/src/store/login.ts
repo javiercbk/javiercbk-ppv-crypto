@@ -1,4 +1,5 @@
 import { Module } from "vuex";
+import moment from "moment";
 import { apiPrefix, GenericAPIResponse, setToken } from "@/lib/http/api";
 import { AppRootState } from "@/store";
 import { User } from "@/models/models";
@@ -50,6 +51,9 @@ const eventsModule: Module<LoginState, AppRootState> = {
         if (response.ok) {
           const responseJSON: GenericAPIResponse<JWTTokenResponse> = await response.json();
           if (responseJSON.data) {
+            responseJSON.data.user.expiry = moment.utc(
+              responseJSON.data.user.expiry
+            );
             setToken(responseJSON.data.token);
             const userInSession = responseJSON.data.user;
             userInSession.ability = defineAbilitiesFor(userInSession);

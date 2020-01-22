@@ -33,6 +33,7 @@ const (
 	userFirstName   = "firstName"
 	userLastName    = "lastName"
 	userPermissions = "permissions"
+	userExpiry      = "exp"
 	// ErrUserNotFound is returned when a jwt token was not found in the request context
 	ErrUserNotFound UserNotFoundError = "user was not found in the request context"
 	// ErrMalformedUser is returned when a user cannot be parsed from the JWT user
@@ -51,6 +52,7 @@ type JWTUser struct {
 	ID          int64         `json:"id"`
 	FirstName   string        `json:"firstName"`
 	LastName    string        `json:"lastName"`
+	Expiry      time.Time     `json:"expiry"`
 	Permissions PermissionMap `json:"permissions"`
 }
 
@@ -60,9 +62,11 @@ func JWTMiddlewareFactory(jwtSecret string, optional bool) echo.MiddlewareFunc {
 		SigningKey: []byte(jwtSecret),
 		ContextKey: contextKey,
 	})
+	jwt.TimeFunc = time.Now().UTC
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			err := jwtMiddleware(next)(c)
+			// only if the error was ErrJWTMissing retry the request
 			if errors.Is(err, middleware.ErrJWTMissing) && optional {
 				// if it failed to find the JWTToken, then continue
 				// if and only if the user is optional
@@ -80,8 +84,7 @@ func JWTEncode(user JWTUser, d time.Duration) jwt.MapClaims {
 	claims[userFirstName] = user.FirstName
 	claims[userLastName] = user.LastName
 	claims[userPermissions] = user.Permissions
-	// session lasts only 20 minutes
-	claims["exp"] = time.Now().Add(d).Unix()
+	claims[userExpiry] = time.Now().UTC().Add(d).Unix()
 	return claims
 }
 
@@ -101,6 +104,8 @@ func JWTDecode(c echo.Context, jwtUser *JWTUser) error {
 		if err != nil {
 			err = ErrMalformedUser
 		}
+		expiry := int64(claims[userExpiry].(float64))
+		jwtUser.Expiry = time.Unix(expiry, 0)
 		if jwtUser.FirstName, ok = claims[userFirstName].(string); !ok {
 			err = ErrMalformedUser
 		}

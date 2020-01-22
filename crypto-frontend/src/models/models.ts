@@ -1,4 +1,5 @@
 import { Ability } from "casl";
+import { Moment } from "moment";
 
 export enum CryptoCurrency {
   ETH = "ETH",
@@ -46,6 +47,7 @@ export interface User {
   id: number;
   firstName: string;
   lastName: string;
+  expiry: Moment;
   permissions: Permission[];
   ability: Ability;
 }

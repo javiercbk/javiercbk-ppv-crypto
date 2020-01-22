@@ -35,6 +35,15 @@ const routes: RouteConfig[] = [
     }
   },
   {
+    path: "/events/:eventId",
+    name: "events-edition",
+    component: EventFormComponent,
+    meta: {
+      public: false,
+      resource: "Event"
+    }
+  },
+  {
     path: "/login",
     name: "login",
     component: LoginComponent,

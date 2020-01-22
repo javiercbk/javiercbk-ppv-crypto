@@ -25,6 +25,7 @@ type SmartContract struct {
 	ID                int64           `boil:"id" json:"id" toml:"id" yaml:"id"`
 	PayPerViewEventID int64           `boil:"pay_per_view_event_id" json:"payPerViewEventID" toml:"payPerViewEventID" yaml:"payPerViewEventID"`
 	Address           string          `boil:"address" json:"address" toml:"address" yaml:"address"`
+	Currency          string          `boil:"currency" json:"currency" toml:"currency" yaml:"currency"`
 	R                 *smartContractR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L                 smartContractL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
@@ -33,10 +34,12 @@ var SmartContractColumns = struct {
 	ID                string
 	PayPerViewEventID string
 	Address           string
+	Currency          string
 }{
 	ID:                "id",
 	PayPerViewEventID: "pay_per_view_event_id",
 	Address:           "address",
+	Currency:          "currency",
 }
 
 // SmartContractRels is where relationship names are stored.
@@ -63,8 +66,8 @@ func (*smartContractR) NewStruct() *smartContractR {
 type smartContractL struct{}
 
 var (
-	smartContractColumns               = []string{"id", "pay_per_view_event_id", "address"}
-	smartContractColumnsWithoutDefault = []string{"pay_per_view_event_id", "address"}
+	smartContractColumns               = []string{"id", "pay_per_view_event_id", "address", "currency"}
+	smartContractColumnsWithoutDefault = []string{"pay_per_view_event_id", "address", "currency"}
 	smartContractColumnsWithDefault    = []string{"id"}
 	smartContractPrimaryKeyColumns     = []string{"id"}
 )

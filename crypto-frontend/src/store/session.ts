@@ -1,11 +1,7 @@
 import { Route } from "vue-router";
 import { Module } from "vuex";
 import { User } from "@/models/models";
-import {
-  apiPrefix,
-  GenericAPIResponse,
-  fetchAuthenticated
-} from "@/lib/http/api";
+import { GenericAPIResponse, fetchAuthenticated } from "@/lib/http/api";
 import { AppRootState } from "@/store";
 import { defineAbilitiesFor } from "@/lib/user/abilities";
 

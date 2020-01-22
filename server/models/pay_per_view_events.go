@@ -23,48 +23,45 @@ import (
 
 // PayPerViewEvent is an object representing the database table.
 type PayPerViewEvent struct {
-	ID              int64             `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Name            string            `boil:"name" json:"name" toml:"name" yaml:"name"`
-	Description     string            `boil:"description" json:"description" toml:"description" yaml:"description"`
-	EventType       string            `boil:"event_type" json:"eventType" toml:"eventType" yaml:"eventType"`
-	Start           null.Time         `boil:"start" json:"start,omitempty" toml:"start" yaml:"start,omitempty"`
-	End             null.Time         `boil:"end" json:"end,omitempty" toml:"end" yaml:"end,omitempty"`
-	PriceEth        null.Int64        `boil:"price_eth" json:"priceEth,omitempty" toml:"priceEth" yaml:"priceEth,omitempty"`
-	PriceBTC        null.Int64        `boil:"price_btc" json:"priceBTC,omitempty" toml:"priceBTC" yaml:"priceBTC,omitempty"`
-	PriceXMR        null.Int64        `boil:"price_xmr" json:"priceXMR,omitempty" toml:"priceXMR" yaml:"priceXMR,omitempty"`
-	EthContractAddr null.String       `boil:"eth_contract_addr" json:"ethContractAddr,omitempty" toml:"ethContractAddr" yaml:"ethContractAddr,omitempty"`
-	CreatedAt       null.Time         `boil:"created_at" json:"createdAt,omitempty" toml:"createdAt" yaml:"createdAt,omitempty"`
-	UpdatedAt       null.Time         `boil:"updated_at" json:"updatedAt,omitempty" toml:"updatedAt" yaml:"updatedAt,omitempty"`
-	R               *payPerViewEventR `boil:"-" json:"-" toml:"-" yaml:"-"`
-	L               payPerViewEventL  `boil:"-" json:"-" toml:"-" yaml:"-"`
+	ID          int64             `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Name        string            `boil:"name" json:"name" toml:"name" yaml:"name"`
+	Description string            `boil:"description" json:"description" toml:"description" yaml:"description"`
+	EventType   string            `boil:"event_type" json:"eventType" toml:"eventType" yaml:"eventType"`
+	Start       null.Time         `boil:"start" json:"start,omitempty" toml:"start" yaml:"start,omitempty"`
+	End         null.Time         `boil:"end" json:"end,omitempty" toml:"end" yaml:"end,omitempty"`
+	PriceEth    null.Int64        `boil:"price_eth" json:"priceEth,omitempty" toml:"priceEth" yaml:"priceEth,omitempty"`
+	PriceBTC    null.Int64        `boil:"price_btc" json:"priceBTC,omitempty" toml:"priceBTC" yaml:"priceBTC,omitempty"`
+	PriceXMR    null.Int64        `boil:"price_xmr" json:"priceXMR,omitempty" toml:"priceXMR" yaml:"priceXMR,omitempty"`
+	CreatedAt   null.Time         `boil:"created_at" json:"createdAt,omitempty" toml:"createdAt" yaml:"createdAt,omitempty"`
+	UpdatedAt   null.Time         `boil:"updated_at" json:"updatedAt,omitempty" toml:"updatedAt" yaml:"updatedAt,omitempty"`
+	R           *payPerViewEventR `boil:"-" json:"-" toml:"-" yaml:"-"`
+	L           payPerViewEventL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PayPerViewEventColumns = struct {
-	ID              string
-	Name            string
-	Description     string
-	EventType       string
-	Start           string
-	End             string
-	PriceEth        string
-	PriceBTC        string
-	PriceXMR        string
-	EthContractAddr string
-	CreatedAt       string
-	UpdatedAt       string
+	ID          string
+	Name        string
+	Description string
+	EventType   string
+	Start       string
+	End         string
+	PriceEth    string
+	PriceBTC    string
+	PriceXMR    string
+	CreatedAt   string
+	UpdatedAt   string
 }{
-	ID:              "id",
-	Name:            "name",
-	Description:     "description",
-	EventType:       "event_type",
-	Start:           "start",
-	End:             "end",
-	PriceEth:        "price_eth",
-	PriceBTC:        "price_btc",
-	PriceXMR:        "price_xmr",
-	EthContractAddr: "eth_contract_addr",
-	CreatedAt:       "created_at",
-	UpdatedAt:       "updated_at",
+	ID:          "id",
+	Name:        "name",
+	Description: "description",
+	EventType:   "event_type",
+	Start:       "start",
+	End:         "end",
+	PriceEth:    "price_eth",
+	PriceBTC:    "price_btc",
+	PriceXMR:    "price_xmr",
+	CreatedAt:   "created_at",
+	UpdatedAt:   "updated_at",
 }
 
 // PayPerViewEventRels is where relationship names are stored.
@@ -88,8 +85,8 @@ func (*payPerViewEventR) NewStruct() *payPerViewEventR {
 type payPerViewEventL struct{}
 
 var (
-	payPerViewEventColumns               = []string{"id", "name", "description", "event_type", "start", "end", "price_eth", "price_btc", "price_xmr", "eth_contract_addr", "created_at", "updated_at"}
-	payPerViewEventColumnsWithoutDefault = []string{"name", "description", "event_type", "start", "end", "price_eth", "price_btc", "price_xmr", "eth_contract_addr", "created_at", "updated_at"}
+	payPerViewEventColumns               = []string{"id", "name", "description", "event_type", "start", "end", "price_eth", "price_btc", "price_xmr", "created_at", "updated_at"}
+	payPerViewEventColumnsWithoutDefault = []string{"name", "description", "event_type", "start", "end", "price_eth", "price_btc", "price_xmr", "created_at", "updated_at"}
 	payPerViewEventColumnsWithDefault    = []string{"id"}
 	payPerViewEventPrimaryKeyColumns     = []string{"id"}
 )

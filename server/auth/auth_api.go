@@ -80,6 +80,7 @@ type VisibleUser struct {
 	ID          int64                       `json:"id"`
 	FirstName   string                      `json:"firstName"`
 	LastName    string                      `json:"lastName"`
+	Expiry      time.Time                   `json:"validUntil"`
 	Permissions models.PermissionsUserSlice `json:"permissions"`
 	CreatedAt   time.Time                   `json:"createdAt"`
 	UpdatedAt   *time.Time                  `json:"updatedAt,omitempty"`
@@ -91,7 +92,7 @@ type APIFactory func(logger *log.Logger, db *sql.DB, jwtSecret string) API
 // API is authentication API interface
 type API interface {
 	AuthenticateUser(ctx context.Context, credentials Credentials) (TokenResponse, error)
-	UserInfo(ctx context.Context, userID int64, user *VisibleUser) error
+	UserInfo(ctx context.Context, jwtUser security.JWTUser, user *VisibleUser) error
 }
 
 type api struct {
@@ -136,6 +137,7 @@ func (api api) AuthenticateUser(ctx context.Context, credentials Credentials) (T
 		LastName:    user.LastName,
 		Permissions: security.ToPermissionsMap(user.R.PermissionsUsers),
 	}
+	// session last an hour
 	token.Claims = security.JWTEncode(jwtUser, time.Hour*1)
 	t, err := token.SignedString([]byte(api.jwtSecret))
 	if err != nil {
@@ -155,11 +157,11 @@ func (api api) AuthenticateUser(ctx context.Context, credentials Credentials) (T
 }
 
 // UserInfo returns a visible user from a userID
-func (api api) UserInfo(ctx context.Context, userID int64, visibleUser *VisibleUser) error {
-	user, err := models.Users(qm.Where("id = ?", userID), qm.Load(models.UserRels.PermissionsUsers)).One(ctx, api.db)
+func (api api) UserInfo(ctx context.Context, jwtUser security.JWTUser, visibleUser *VisibleUser) error {
+	user, err := models.Users(qm.Where("id = ?", jwtUser.ID), qm.Load(models.UserRels.PermissionsUsers)).One(ctx, api.db)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			api.logger.Printf("user %d does not exist\n", userID)
+			api.logger.Printf("user %d does not exist\n", jwtUser.ID)
 			return ErrUserNotExist
 		}
 		api.logger.Printf("error fiding user %v\n", err)
@@ -168,6 +170,7 @@ func (api api) UserInfo(ctx context.Context, userID int64, visibleUser *VisibleU
 	visibleUser.ID = user.ID
 	visibleUser.FirstName = user.FirstName
 	visibleUser.LastName = user.LastName
+	visibleUser.Expiry = jwtUser.Expiry
 	visibleUser.Permissions = user.R.PermissionsUsers
 	visibleUser.CreatedAt = user.CreatedAt.Time
 	visibleUser.UpdatedAt = user.UpdatedAt.Ptr()

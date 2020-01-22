@@ -254,7 +254,7 @@ type SmartContractDeployer struct {
 
 // DeployNewPPVSmartContract deploys a new PPV smart contract
 func (d *SmartContractDeployer) DeployNewPPVSmartContract(ctx context.Context, prospectEvent ProspectPPVEvent, deployedContract *DeployedContract) error {
-	if !prospectEvent.Start.IsZero() || !prospectEvent.End.IsZero() || prospectEvent.Start.After(prospectEvent.End) {
+	if prospectEvent.Start.IsZero() || prospectEvent.End.IsZero() || prospectEvent.Start.After(prospectEvent.End) {
 		return ErrInvalidTime
 	}
 	if prospectEvent.Price <= 0 {

@@ -1,31 +1,25 @@
-import { createComponent, ref, Ref, computed } from "@vue/composition-api";
+import {
+  createComponent,
+  ref,
+  Ref,
+  computed,
+  watch
+} from "@vue/composition-api";
 const { required, minValue, numeric } = require("@vuelidate/validators");
 const useVuelidate = require("@vuelidate/core").default;
-import { useState } from "@u3u/vue-hooks";
+import { useState, useActions } from "@u3u/vue-hooks";
 import { datetimeFormatter, datetimeParser } from "@/lib/date/date";
-import store from "@/store";
+import { isStoreEventReady } from "@/store/events";
 import router from "@/router";
-import { ethAddress } from "@/lib/validators";
 import { PayPerViewEvent } from "@/models/models";
 import { PayPerViewEventProspect } from "@/models/events";
 import { EventFormState, EVENT_PARAM_NAME } from "@/store/events";
 
 const minUnity = minValue(1);
-const minStart = minValue("start");
 
 interface EventCreateFormProps {
   eventId?: number;
 }
-
-const stateAllowingSave: EventFormState[] = [
-  EventFormState.Created,
-  EventFormState.ErrorSaving,
-  EventFormState.Ready,
-  EventFormState.Saved
-];
-
-const canSave = (state: EventFormState) =>
-  stateAllowingSave.indexOf(state) !== -1;
 
 export default createComponent({
   props: {
@@ -33,7 +27,16 @@ export default createComponent({
   },
   setup(props: EventCreateFormProps) {
     const state = {
-      ...useState("events", ["event", "eventError", "eventFormState"])
+      ...useState("events", [
+        "event",
+        "eventError",
+        "eventFormState",
+        "estimatedPrice"
+      ])
+    };
+
+    const actions = {
+      ...useActions("events", ["saveEvent", "estimateEventPrice"])
     };
 
     const event = (state.event as Ref<PayPerViewEvent | null>).value;
@@ -72,13 +75,15 @@ export default createComponent({
     const priceETH = ref(initPriceETH);
     const ethContractAddr = ref(initEthContractAddr);
 
+    const largerThanStart = minValue(start.value);
+
     const $v = useVuelidate(
       {
         name: { required, $autoDirty: true },
         description: { required, $autoDirty: true },
         eventType: { required, $autoDirty: true },
         start: { required, $autoDirty: true },
-        end: { required, minStart, $autoDirty: true },
+        end: { required, largerThanStart, $autoDirty: true },
         priceBTC: { required, numeric, minUnity, $autoDirty: true },
         priceXMR: { required, numeric, minUnity, $autoDirty: true },
         priceETH: { required, numeric, minUnity, $autoDirty: true }
@@ -96,17 +101,10 @@ export default createComponent({
     );
 
     const computedProps = {
-      loadingEvent: computed(() => {
+      isReady: computed(() => {
         const eventFormState = (state.eventFormState as Ref<EventFormState>)
           .value;
-        return (
-          eventFormState === EventFormState.Loading || !canSave(eventFormState)
-        );
-      }),
-      saveButtonDisabled: computed(() => {
-        const eventFormState = (state.eventFormState as Ref<EventFormState>)
-          .value;
-        return !canSave(eventFormState);
+        return isStoreEventReady(eventFormState);
       }),
       isEdition: computed(() => {
         const eventId = router.currentRoute.params[EVENT_PARAM_NAME];
@@ -120,16 +118,33 @@ export default createComponent({
       })
     };
 
+    watch(() => {
+      const estimatedPrice = state.estimatedPrice.value;
+      if (estimatedPrice.satoshi) {
+        priceBTC.value = estimatedPrice.satoshi;
+      }
+      if (estimatedPrice.piconero) {
+        priceXMR.value = estimatedPrice.piconero;
+      }
+      if (estimatedPrice.wei) {
+        priceETH.value = estimatedPrice.wei;
+      }
+    });
+
     const estimateCryptoValues = async function(e: Event) {
       e.preventDefault();
+      if (computedProps.isReady.value) {
+        actions.estimateEventPrice(usDollars.value);
+      }
     };
 
     const createEvent = async function(e: Event) {
       e.preventDefault();
-      const eventFormState = (state.eventFormState as Ref<EventFormState>)
-        .value;
-      if (!$v.$invalid && canSave(eventFormState)) {
+      if (!$v.$invalid && computedProps.isReady.value) {
+        const event = (state.event as Ref<PayPerViewEvent | null>).value;
+        const eventId = event ? event.id : undefined;
         const payPerViewProspect: PayPerViewEventProspect = {
+          id: eventId,
           name: name.value,
           description: description.value,
           eventType: eventType.value,
@@ -142,7 +157,7 @@ export default createComponent({
         if (props.eventId) {
           payPerViewProspect.id = props.eventId;
         }
-        await store.dispatch("events/saveEvent", payPerViewProspect);
+        await actions.saveEvent(payPerViewProspect);
       }
     };
 

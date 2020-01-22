@@ -14,7 +14,6 @@ import (
 	"github.com/javiercbk/ppv-crypto/server/cryptocurrency/eth"
 	"github.com/javiercbk/ppv-crypto/server/http/security"
 	"github.com/javiercbk/ppv-crypto/server/models"
-	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
 	"github.com/volatiletech/sqlboiler/queries/qm"
@@ -172,6 +171,7 @@ func (api api) CreateEvent(ctx context.Context, ppvEvent *models.PayPerViewEvent
 		return err
 	}
 	if ppvEvent.Start.Valid && ppvEvent.End.Valid && ppvEvent.PriceEth.Valid {
+		// Maybe this should be done in a go routine and
 		deployedContract := eth.DeployedContract{}
 		prospectEvent := eth.ProspectPPVEvent{
 			Start: ppvEvent.Start.Time,
@@ -185,10 +185,14 @@ func (api api) CreateEvent(ctx context.Context, ppvEvent *models.PayPerViewEvent
 			return err
 		}
 		contractAddress := deployedContract.Address.Hex()
-		ppvEvent.EthContractAddr = null.StringFrom(contractAddress)
-		_, err = ppvEvent.Update(ctx, tx, boil.Whitelist(models.PayPerViewEventColumns.EthContractAddr))
+		smartContract := &models.SmartContract{
+			PayPerViewEventID: ppvEvent.ID,
+			Address:           contractAddress,
+			Currency:          cryptocurrency.ETH.String(),
+		}
+		err = ppvEvent.AddSmartContracts(ctx, tx, true, smartContract)
 		if err != nil {
-			api.logger.Printf("error updating smart contract with address '%s', error: %v", contractAddress, err)
+			api.logger.Printf("error inserting smart contract with address '%s', error: %v", contractAddress, err)
 			// since the contract is already deployed we do not want to return the error and roll back the whole thing
 		}
 	}

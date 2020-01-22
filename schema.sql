@@ -43,7 +43,6 @@ CREATE TABLE pay_per_view_events(
     "price_eth" BIGINT,
     "price_btc" BIGINT,
     "price_xmr" BIGINT,
-    "eth_contract_addr" TEXT,
     "created_at" TIMESTAMPTZ,
     "updated_at" TIMESTAMPTZ
 );
@@ -85,6 +84,7 @@ CREATE TABLE smart_contracts(
     "id" BIGSERIAL NOT NULL PRIMARY KEY,
     "pay_per_view_event_id" BIGINT NOT NULL,
     "address" TEXT NOT NULL,
+    currency crypto_currency NOT NULL,
     CONSTRAINT smart_contracts_event_fk FOREIGN KEY (pay_per_view_event_id) REFERENCES pay_per_view_events (id)
 );
 

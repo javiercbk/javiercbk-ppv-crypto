@@ -62,14 +62,14 @@ func (h Handler) authenticateUser(c echo.Context) error {
 
 func (h Handler) retrieveCurrentUserInfo(c echo.Context) error {
 	ctx := c.Request().Context()
-	jwtUser := &security.JWTUser{}
-	err := security.JWTDecode(c, jwtUser)
+	jwtUser := security.JWTUser{}
+	err := security.JWTDecode(c, &jwtUser)
 	if err != nil {
 		return response.NewUnauthorizedErrorResponse(c)
 	}
 	api := h.apiFactory(h.logger, h.db, h.jwtSecret)
 	visibleUser := VisibleUser{}
-	err = api.UserInfo(ctx, jwtUser.ID, &visibleUser)
+	err = api.UserInfo(ctx, jwtUser, &visibleUser)
 	if err != nil {
 		if errors.Is(err, ErrUserNotExist) {
 			return response.NewUnauthorizedErrorResponse(c)

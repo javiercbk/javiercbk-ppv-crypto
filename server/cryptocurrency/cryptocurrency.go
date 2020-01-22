@@ -3,6 +3,10 @@ package cryptocurrency
 // CryptoCurrency is a cryptocurrency
 type CryptoCurrency string
 
+func (c CryptoCurrency) String() string {
+	return string(c)
+}
+
 const (
 	// ETH is Ethereum
 	ETH CryptoCurrency = "ETH"
