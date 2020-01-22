@@ -1,5 +1,12 @@
 import { Module } from "vuex";
-import { PayPerViewEvent, CryptoCurrency } from "@/models/models";
+import moment from "moment";
+import {
+  PayPerViewEvent,
+  Payment,
+  CryptoCurrency,
+  strToCryptoCurrency,
+  strToPaymentStatus
+} from "@/models/models";
 import { fetchAuthenticated, GenericAPIResponse } from "@/lib/http/api";
 import { AppRootState } from "@/store";
 import { PayPerViewEventProspect } from "@/models/events";
@@ -59,6 +66,87 @@ export interface SubscriptionConfirmed {
   subscribedOn: Date;
 }
 
+export interface PaymentDTO {
+  id: number;
+  userId?: number | null;
+  payPerViewEventId: number;
+  currency: string;
+  currencyPaymentId?: number | null;
+  amount: number | null;
+  walletAddress: string | null;
+  status: string;
+  blockHash?: string | null;
+  blockNumberHex?: string | null;
+  txHash?: string | null;
+  txNumberHex?: string | null;
+  cancelledBlockHash?: string | null;
+  cancelledBlockNumberHex?: string | null;
+  cancelledTxHash?: string | null;
+  cancelledTxNumberHex?: string | null;
+  cancelledAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface PayPerViewEventDTO {
+  id: number;
+  name: string;
+  description: string;
+  eventType: string;
+  start: string;
+  end: string;
+  priceBTC: number;
+  priceXMR: number;
+  priceETH: number;
+  ethContractAddr: string;
+  payments?: PaymentDTO[] | null;
+}
+
+const toPayPerViewEvent = function(event: PayPerViewEventDTO): PayPerViewEvent {
+  return {
+    id: event.id, //number;
+    name: event.name, //string;
+    description: event.description, //string;
+    eventType: event.eventType, //string;
+    start: moment(event.start, moment.ISO_8601, true), //string;
+    end: moment(event.end, moment.ISO_8601, true), //string;
+    priceBTC: event.priceBTC, //number;
+    priceXMR: event.priceXMR, //number;
+    priceETH: event.priceETH, //number;
+    ethContractAddr: event.ethContractAddr, //string;
+    payments:
+      event.payments && event.payments.length > 0
+        ? event.payments.map(toPayment)
+        : [] // PaymentDTO[] | null;
+  };
+};
+
+const toPayment = function(p: PaymentDTO): Payment {
+  return {
+    id: p.id, //number;
+    userId: p.userId,
+    payPerViewEventId: p.payPerViewEventId,
+    currency: strToCryptoCurrency(p.currency),
+    currencyPaymentId: p.currencyPaymentId,
+    amount: p.amount,
+    walletAddress: p.walletAddress,
+    status: strToPaymentStatus(p.status),
+    blockHash: p.blockHash,
+    blockNumberHex: p.blockNumberHex,
+    txHash: p.txHash,
+    txNumberHex: p.txNumberHex,
+    cancelledBlockHash: p.cancelledBlockHash,
+    cancelledBlockNumberHex: p.cancelledBlockNumberHex,
+    cancelledTxHash: p.cancelledTxHash,
+    cancelledTxNumberHex: p.cancelledTxNumberHex,
+    cancelledAt: p.cancelledAt
+      ? moment(p.cancelledAt, moment.ISO_8601, true)
+      : null,
+    createdAt: p.createdAt ? moment(p.createdAt, moment.ISO_8601, true) : null,
+    updatedAt: p.updatedAt ? moment(p.updatedAt, moment.ISO_8601, true) : null
+  };
+};
+
 const eventsModule: Module<PayPerViewEventState, AppRootState> = {
   namespaced: true,
   state: () => ({
@@ -114,7 +202,7 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
         const response = await fetchAuthenticated(`events/${eventId}`);
         if (response.ok) {
           const responseJSON = (await response.json()) as GenericAPIResponse<
-            PayPerViewEvent
+            PayPerViewEventDTO
           >;
           commit("setEvent", responseJSON.data);
           commit("setEventFormState", EventFormState.Ready);
@@ -137,16 +225,17 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
         const response = await fetchAuthenticated("events");
         if (response.ok) {
           const responseJSON = (await response.json()) as GenericAPIResponse<
-            PayPerViewEvent[]
+            PayPerViewEventDTO[]
           >;
           const available: PayPerViewEvent[] = [];
           const subscribed: PayPerViewEvent[] = [];
           const events = responseJSON.data || [];
           events.forEach(e => {
-            if (e.subscription) {
-              subscribed.push(e);
+            const event = toPayPerViewEvent(e);
+            if (e.payments && e.payments.length > 0) {
+              subscribed.push(event);
             } else {
-              available.push(e);
+              available.push(event);
             }
           });
           commit("setAvailableEvents", available);

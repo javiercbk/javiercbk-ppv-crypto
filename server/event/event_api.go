@@ -14,6 +14,7 @@ import (
 	"github.com/javiercbk/ppv-crypto/server/cryptocurrency/eth"
 	"github.com/javiercbk/ppv-crypto/server/http/security"
 	"github.com/javiercbk/ppv-crypto/server/models"
+	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
 	"github.com/volatiletech/sqlboiler/queries/qm"
@@ -49,28 +50,33 @@ type PPVEventAndSubscription struct {
 	Payments []models.Payment `json:"payments"`
 }
 
-// ppvEventAndSubscriptionResults is used to bind the query results from a query
-type ppvEventAndSubscriptionResults struct {
-	models.PayPerViewEvent `boil:",bind"`
-	Payment                models.Payment `boil:",bind"`
-	// models.PayPerViewEvent  `boil:"pay_per_view_events,bind"`
-	// PaymentID               int64       `boil:"p.id"`
-	// UserID                  int64       `boil:"p.user_id"`
-	// PayPerViewEventID       int64       `boil:"p.pay_per_view_event_id"`
-	// Currency                string      `boil:"p.currency"`
-	// CurrencyPaymentID       null.String `boil:"p.currency_payment_id"`
-	// Amount                  null.Int64  `boil:"p.amount"`
-	// WalletAddress           null.String `boil:"p.wallet_address"`
-	// Status                  string      `boil:"p.status"`
-	// BlockHash               null.String `boil:"p.block_hash"`
-	// BlockNumberHex          null.String `boil:"p.block_number_hex"`
-	// TXHash                  null.String `boil:"p.tx_hash"`
-	// TXNumberHex             null.String `boil:"p.tx_number_hex"`
-	// CancelledBlockHash      null.String `boil:"p.cancelled_block_hash"`
-	// CancelledBlockNumberHex null.String `boil:"p.cancelled_block_number_hex"`
-	// CancelledTXHash         null.String `boil:"p.cancelled_tx_hash"`
-	// CancelledTXNumberHex    null.String `boil:"p.cancelled_tx_number_hex"`
-	// CancelledAt             null.Time   `boil:"p.cancelled_at"`
+// NullablePayment is the same as model.Payment but all their fields are nullable
+type nullablePayment struct {
+	PID                            null.Int64  `boil:"id" json:"id" toml:"id" yaml:"id"`
+	PaymentUserID                  null.Int64  `boil:"user_id" json:"userID,omitempty" toml:"userID" yaml:"userID,omitempty"`
+	PaymentPayPerViewEventID       null.Int64  `boil:"pay_per_view_event_id" json:"payPerViewEventID" toml:"payPerViewEventID" yaml:"payPerViewEventID"`
+	PaymentCurrency                null.String `boil:"currency" json:"currency" toml:"currency" yaml:"currency"`
+	PaymentCurrencyPaymentID       null.String `boil:"currency_payment_id" json:"currencyPaymentID,omitempty" toml:"currencyPaymentID" yaml:"currencyPaymentID,omitempty"`
+	PaymentAmount                  null.Int64  `boil:"amount" json:"amount,omitempty" toml:"amount" yaml:"amount,omitempty"`
+	PaymentWalletAddress           null.String `boil:"wallet_address" json:"walletAddress,omitempty" toml:"walletAddress" yaml:"walletAddress,omitempty"`
+	PaymentStatus                  null.String `boil:"status" json:"status" toml:"status" yaml:"status"`
+	PaymentBlockHash               null.String `boil:"block_hash" json:"blockHash,omitempty" toml:"blockHash" yaml:"blockHash,omitempty"`
+	PaymentBlockNumberHex          null.String `boil:"block_number_hex" json:"blockNumberHex,omitempty" toml:"blockNumberHex" yaml:"blockNumberHex,omitempty"`
+	PaymentTXHash                  null.String `boil:"tx_hash" json:"txHash,omitempty" toml:"txHash" yaml:"txHash,omitempty"`
+	PaymentTXNumberHex             null.String `boil:"tx_number_hex" json:"txNumberHex,omitempty" toml:"txNumberHex" yaml:"txNumberHex,omitempty"`
+	PaymentCancelledBlockHash      null.String `boil:"cancelled_block_hash" json:"cancelledBlockHash,omitempty" toml:"cancelledBlockHash" yaml:"cancelledBlockHash,omitempty"`
+	PaymentCancelledBlockNumberHex null.String `boil:"cancelled_block_number_hex" json:"cancelledBlockNumberHex,omitempty" toml:"cancelledBlockNumberHex" yaml:"cancelledBlockNumberHex,omitempty"`
+	PaymentCancelledTXHash         null.String `boil:"cancelled_tx_hash" json:"cancelledTXHash,omitempty" toml:"cancelledTXHash" yaml:"cancelledTXHash,omitempty"`
+	PaymentCancelledTXNumberHex    null.String `boil:"cancelled_tx_number_hex" json:"cancelledTXNumberHex,omitempty" toml:"cancelledTXNumberHex" yaml:"cancelledTXNumberHex,omitempty"`
+	PaymentCancelledAt             null.Time   `boil:"cancelled_at" json:"cancelledAt,omitempty" toml:"cancelledAt" yaml:"cancelledAt,omitempty"`
+	PaymentCreatedAt               null.Time   `boil:"created_at" json:"createdAt,omitempty" toml:"createdAt" yaml:"createdAt,omitempty"`
+	PaymentUpdatedAt               null.Time   `boil:"updated_at" json:"updatedAt,omitempty" toml:"updatedAt" yaml:"updatedAt,omitempty"`
+}
+
+// ppvEventAndSubscriptionResult is used to bind the query results from a query
+type ppvEventAndSubscriptionResult struct {
+	models.PayPerViewEvent `boil:"pay_per_view_events,bind"`
+	nullablePayment        `boil:"payments,bind"`
 }
 
 // PPVEvent has all the information of a pay per view event
@@ -263,7 +269,7 @@ func (api api) RegisterUnsubscription(ctx context.Context, payment PPVEventPayme
 
 func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEventQuery, user *security.JWTUser) ([]PPVEventAndSubscription, error) {
 	subscription := make([]PPVEventAndSubscription, 0)
-	results := make([]ppvEventAndSubscriptionResults, 0)
+	results := make([]ppvEventAndSubscriptionResult, 0)
 	queryBuilder := strings.Builder{}
 	queryParams := make([]interface{}, 0, 4)
 	queryBuilder.WriteString(`
@@ -274,9 +280,9 @@ func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEvent
 	pay_per_view_events.description AS "pay_per_view_events.description",
 	pay_per_view_events.start AS "pay_per_view_events.start",
 	pay_per_view_events.end AS "pay_per_view_events.end",
-	pay_per_view_events.price_ETH AS "pay_per_view_events.price_ETH",
-	pay_per_view_events.price_BTC AS "pay_per_view_events.price_BTC",
-	pay_per_view_events.price_XMR AS "pay_per_view_events.price_XMR",
+	pay_per_view_events.price_eth AS "pay_per_view_events.price_eth",
+	pay_per_view_events.price_btc AS "pay_per_view_events.price_btc",
+	pay_per_view_events.price_xmr AS "pay_per_view_events.price_xmr",
 	pay_per_view_events.created_at AS "pay_per_view_events.createdAt",
 	pay_per_view_events.updated_at AS "pay_per_view_events.updatedAt"
 	`)
@@ -378,31 +384,61 @@ func (api api) retrieveEventsFromDatabase(ctx context.Context, ppvQuery PPVEvent
 		return subscription, err
 	}
 	var currentPPVEvent PPVEventAndSubscription
-	for i := range results {
-		event := results[i]
-		if event.ID == currentPPVEvent.ID {
-			currentPPVEvent.Payments = append(currentPPVEvent.Payments, event.Payment)
-		} else {
-			if currentPPVEvent.ID != 0 {
+	if len(results) > 0 {
+		for i := range results {
+			event := results[i]
+			if event.ID == currentPPVEvent.ID {
+				if event.PID.Valid {
+					currentPPVEvent.Payments = append(currentPPVEvent.Payments, fromNullabletoPayment(event))
+				}
 				subscription = append(subscription, currentPPVEvent)
+			} else {
+				if currentPPVEvent.ID != 0 {
+					subscription = append(subscription, currentPPVEvent)
+					currentPPVEvent = PPVEventAndSubscription{}
+				}
 				currentPPVEvent = PPVEventAndSubscription{}
-			}
-			currentPPVEvent = PPVEventAndSubscription{}
-			currentPPVEvent.ID = event.ID
-			currentPPVEvent.Name = event.Name
-			currentPPVEvent.Description = event.Description
-			currentPPVEvent.EventType = event.EventType
-			currentPPVEvent.Start = event.Start
-			currentPPVEvent.End = event.End
-			currentPPVEvent.PriceEth = event.PriceEth
-			currentPPVEvent.PriceBTC = event.PriceBTC
-			currentPPVEvent.PriceXMR = event.PriceXMR
-			currentPPVEvent.CreatedAt = event.CreatedAt
-			currentPPVEvent.UpdatedAt = event.UpdatedAt
-			if event.Payment.ID != 0 {
-				currentPPVEvent.Payments = append(currentPPVEvent.Payments, event.Payment)
+				currentPPVEvent.ID = event.ID
+				currentPPVEvent.Name = event.Name
+				currentPPVEvent.Description = event.Description
+				currentPPVEvent.EventType = event.EventType
+				currentPPVEvent.Start = event.Start
+				currentPPVEvent.End = event.End
+				currentPPVEvent.PriceEth = event.PriceEth
+				currentPPVEvent.PriceBTC = event.PriceBTC
+				currentPPVEvent.PriceXMR = event.PriceXMR
+				currentPPVEvent.CreatedAt = event.CreatedAt
+				currentPPVEvent.UpdatedAt = event.UpdatedAt
+				if event.PID.Valid {
+					currentPPVEvent.Payments = append(currentPPVEvent.Payments, fromNullabletoPayment(event))
+				}
 			}
 		}
+		subscription = append(subscription, currentPPVEvent)
 	}
 	return subscription, nil
+}
+
+func fromNullabletoPayment(r ppvEventAndSubscriptionResult) models.Payment {
+	return models.Payment{
+		ID:                      r.PID.Int64,
+		UserID:                  r.PaymentUserID,
+		PayPerViewEventID:       r.PaymentPayPerViewEventID.Int64,
+		Currency:                r.PaymentCurrency.String,
+		CurrencyPaymentID:       r.PaymentCurrencyPaymentID,
+		Amount:                  r.PaymentAmount,
+		WalletAddress:           r.PaymentWalletAddress,
+		Status:                  r.PaymentStatus.String,
+		BlockHash:               r.PaymentBlockHash,
+		BlockNumberHex:          r.PaymentBlockNumberHex,
+		TXHash:                  r.PaymentTXHash,
+		TXNumberHex:             r.PaymentTXNumberHex,
+		CancelledBlockHash:      r.PaymentCancelledBlockHash,
+		CancelledBlockNumberHex: r.PaymentCancelledBlockNumberHex,
+		CancelledTXHash:         r.PaymentCancelledTXHash,
+		CancelledTXNumberHex:    r.PaymentCancelledTXNumberHex,
+		CancelledAt:             r.PaymentCancelledAt,
+		CreatedAt:               r.PaymentCreatedAt,
+		UpdatedAt:               r.PaymentUpdatedAt,
+	}
 }
