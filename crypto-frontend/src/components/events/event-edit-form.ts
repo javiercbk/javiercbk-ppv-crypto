@@ -9,11 +9,11 @@ const { required, minValue, numeric } = require("@vuelidate/validators");
 const useVuelidate = require("@vuelidate/core").default;
 import { useState, useActions } from "@u3u/vue-hooks";
 import { datetimeFormatter, datetimeParser } from "@/lib/date/date";
-import { isStoreEventReady } from "@/store/events";
+import { isStoreEventReady } from "@/store/event";
 import router from "@/router";
 import { PayPerViewEvent } from "@/models/models";
 import { PayPerViewEventProspect } from "@/models/events";
-import { EventFormState, EVENT_PARAM_NAME } from "@/store/events";
+import { EventFormState, EVENT_PARAM_NAME } from "@/store/event";
 
 const minUnity = minValue(1);
 
@@ -27,7 +27,7 @@ export default createComponent({
   },
   setup(props: EventCreateFormProps) {
     const state = {
-      ...useState("events", [
+      ...useState("event", [
         "event",
         "eventError",
         "eventFormState",
@@ -36,7 +36,7 @@ export default createComponent({
     };
 
     const actions = {
-      ...useActions("events", ["saveEvent", "estimateEventPrice"])
+      ...useActions("event", ["saveEvent", "estimateEventPrice"])
     };
 
     const event = (state.event as Ref<PayPerViewEvent | null>).value;
@@ -55,8 +55,8 @@ export default createComponent({
       initName = event.name;
       initDescription = event.description;
       initEventType = event.eventType;
-      initStart = event.start;
-      initEnd = event.end;
+      initStart = event.start.toDate();
+      initEnd = event.end.toDate();
       initPriceBTC = event.priceBTC;
       initPriceXMR = event.priceXMR;
       initPriceETH = event.priceETH;

@@ -52,6 +52,7 @@ contract-binding:
 	$(CUR_DIR)/crypto-frontend/node_modules/.bin/solcjs --optimize --abi ./ppv-contract/contracts/PPVEvent.sol
 	$(CUR_DIR)/crypto-frontend/node_modules/.bin/solcjs --optimize --bin ./ppv-contract/contracts/PPVEvent.sol
 	abigen --abi="__ppv-contract_contracts_PPVEvent_sol_PPVEvent.abi" --pkg="ppvevent" --out="$(CUR_DIR)/server/cryptocurrency/eth/ppvevent/ppv-event.go" --bin="__ppv-contract_contracts_PPVEvent_sol_PPVEvent.bin"
+	cp __ppv-contract_contracts_PPVEvent_sol_PPVEvent.abi crypto-frontend/src/lib/abi/ppv_abi.json
 	rm ./*ppv-contract_contracts_PPVEvent_sol_*
 
 start-docker-stack:

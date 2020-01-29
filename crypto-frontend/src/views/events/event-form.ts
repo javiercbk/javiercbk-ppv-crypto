@@ -10,7 +10,7 @@ import EventEditForm from "@/components/events/event-edit-form.vue";
 import NotFound from "@/components/not-found.vue";
 import { PayPerViewEvent } from "@/models/models";
 import router from "@/router";
-import { EventFormState, EVENT_PARAM_NAME } from "@/store/events";
+import { EventFormState, EVENT_PARAM_NAME } from "@/store/event";
 import { Location } from "vue-router";
 
 export default createComponent({
@@ -20,10 +20,10 @@ export default createComponent({
   },
   setup() {
     const state = {
-      ...useState("events", ["event", "eventFormState"])
+      ...useState("event", ["event", "eventFormState"])
     };
     const actions = {
-      ...useActions("events", ["clearEvent", "loadEvent", "notFound"])
+      ...useActions("event", ["clearEvent", "loadEvent", "notFound"])
     };
 
     onBeforeMount(() => {

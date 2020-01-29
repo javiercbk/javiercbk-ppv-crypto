@@ -16,12 +16,37 @@
       <b-icon pack="fas" icon="sync-alt" custom-class="fa-spin"> </b-icon>
       Searching for events
     </div>
-    <div class="columns is-centered is-size-7" v-else-if="hasEvents">
-      <p>
-        <b-icon pack="fas" icon="search"> </b-icon>
-        There are no available events
-      </p>
-    </div>
+    <template v-else-if="hasAvailableEvents">
+      <div class="columns is-centered">
+        <div class="column">Available events</div>
+      </div>
+      <div
+        class="columns is-centered is-size-7"
+        v-for="e in availableEvents"
+        :key="e.id"
+      >
+        <div class="column">{{ e.name }}</div>
+        <div class="column">{{ e.descryption }}</div>
+        <div class="column">{{ e.eventType }}</div>
+        <div class="column">{{ e.start }} - {{ e.end }}</div>
+      </div>
+    </template>
+    <template v-else-if="hasSubscribedEventsEvents">
+      <div class="columns is-centered">
+        <div class="column">Subscribed events</div>
+      </div>
+      <div
+        class="columns is-centered is-size-7"
+        v-for="e in subscribedEvents"
+        :key="e.id"
+      >
+        <div class="column">{{ e.name }}</div>
+        <div class="column">{{ e.descryption }}</div>
+        <div class="column">{{ e.eventType }}</div>
+        <div class="column">{{ e.start }} - {{ e.end }}</div>
+      </div>
+      subscribedEvents
+    </template>
     <div class="columns is-centered is-size-7" v-else-if="hasError">
       <p>
         <b-icon pack="fas" icon="exclamation-circle"> </b-icon>

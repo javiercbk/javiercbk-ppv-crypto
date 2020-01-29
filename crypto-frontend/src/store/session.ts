@@ -33,7 +33,7 @@ const sessionModule: Module<SessionState, AppRootState> = {
     retrieveUser: ({ commit }) => {
       commit("setLoading", true);
       commit("setError", null);
-      fetchAuthenticated(`/auth/current`)
+      fetchAuthenticated(`auth/current`)
         .then(response => {
           if (response.ok) {
             return response
