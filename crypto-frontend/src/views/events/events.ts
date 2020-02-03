@@ -5,7 +5,12 @@ import {
   Ref
 } from "@vue/composition-api";
 import { useState } from "@u3u/vue-hooks";
-import { PayPerViewEvent, User } from "@/models/models";
+import {
+  CryptoCurrency,
+  PayPerViewEvent,
+  strToCryptoCurrency,
+  User
+} from "@/models/models";
 import store from "@/store";
 import { EventListState } from "@/store/events";
 import EventCard from "@/components/events/event-card.vue";
@@ -61,9 +66,23 @@ export default createComponent({
       })
     };
 
+    const subscribe = function(
+      eventId: number,
+      currency: string,
+      contractAddress?: string
+    ) {
+      const cryptoCurrency = strToCryptoCurrency(currency);
+      switch (cryptoCurrency) {
+        case CryptoCurrency.ETH:
+          if (contractAddress) {
+          }
+      }
+    };
+
     return {
       ...state,
-      ...computedProps
+      ...computedProps,
+      subscribe
     };
   }
 });

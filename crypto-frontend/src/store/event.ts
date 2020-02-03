@@ -6,11 +6,7 @@ import {
   strToCryptoCurrency,
   strToPaymentStatus
 } from "@/models/models";
-import {
-  PaymentDTO,
-  PayPerViewEventDTO,
-  SubscriptionIntent
-} from "@/models/events";
+import { PaymentDTO, PayPerViewEventDTO } from "@/models/events";
 import { fetchAuthenticated, GenericAPIResponse } from "@/lib/http/api";
 import { AppRootState } from "@/store";
 import { PayPerViewEventProspect } from "@/models/events";
@@ -43,7 +39,6 @@ export const isStoreEventReady = (state: EventFormState) =>
 export interface PayPerViewEventState {
   estimatedPrice: CryptoCurrencyValues;
   event: PayPerViewEvent | null;
-  errorSubscribingEvent: Response | any | null;
   errorEvent: Response | any | null;
   eventFormState: EventFormState;
 }
@@ -105,13 +100,11 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
     },
     event: null,
     errorEvents: null,
-    errorSubscribingEvent: null,
     errorEvent: null,
     eventFormState: EventFormState.Ready
   }),
   getters: {
     event: s => s.event,
-    errorSubscribingEvent: s => s.errorSubscribingEvent,
     errorEvent: s => s.errorEvent,
     eventFormState: s => s.eventFormState
   },
@@ -187,37 +180,6 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
         commit("setEventFormState", EventFormState.ErrorSaving);
       }
     },
-    subscribe: async (
-      { commit, rootState },
-      subscriptionIntent: SubscriptionIntent
-    ) => {
-      if (rootState.session.user) {
-        commit("setErrorSubscribingEvents", null);
-        commit("setSubscribingEvent", true);
-        try {
-          const response = await fetchAuthenticated(
-            `events/${subscriptionIntent.eventId}`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                currency: subscriptionIntent.currency,
-                transactionId: subscriptionIntent.transactionId
-              })
-            }
-          );
-          const responseJSON = (await response.json()) as GenericAPIResponse<
-            PayPerViewEvent
-          >;
-          if (responseJSON.data) {
-            commit("confirmSubscription", responseJSON.data);
-          }
-        } catch (err) {
-          commit("setErrorSubscribingEvents", err);
-        } finally {
-          commit("setSubscribingEvent", false);
-        }
-      }
-    },
     clearEvent: ({ commit }) => {
       commit("setEvent", null);
       commit("setEstimatedPrice", {
@@ -235,9 +197,6 @@ const eventsModule: Module<PayPerViewEventState, AppRootState> = {
     },
     setEvent: (s, payload: PayPerViewEvent | null) => {
       s.event = payload;
-    },
-    setErrorSubscribingEvent: (s, payload: any) => {
-      s.errorSubscribingEvent = payload;
     },
     setErrorEvent: (s, payload: any) => {
       s.errorEvent = payload;

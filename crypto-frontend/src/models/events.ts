@@ -12,12 +12,6 @@ export interface PayPerViewEventProspect {
   priceETH: number;
 }
 
-export interface SubscriptionIntent {
-  eventId: number;
-  currency: CryptoCurrency;
-  transactionId: string;
-}
-
 export interface SubscriptionConfirmed {
   eventId: number;
   currency: CryptoCurrency;

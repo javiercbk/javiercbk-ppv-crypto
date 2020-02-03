@@ -1,7 +1,7 @@
 <template>
   <div class="container is-fluid">
-    <h1 class="title has-text-chalk">Events</h1>
-    <h2 class="subtitle has-text-chalk">
+    <h1 class="title">Events</h1>
+    <h2 class="subtitle">
       Currently available events to purchase
     </h2>
     <div class="columns is-centered" v-if="userCanCreate">
@@ -29,6 +29,26 @@
         <div class="column">{{ e.descryption }}</div>
         <div class="column">{{ e.eventType }}</div>
         <div class="column">{{ e.start }} - {{ e.end }}</div>
+        <div class="column">
+          <b-icon
+            pack="fab"
+            icon="ethereum"
+            class="is-clickable"
+            @click="subscribe(e.id, 'eth', e.ethContractAddr)"
+          ></b-icon>
+          <b-icon
+            pack="fab"
+            icon="bitcoin"
+            class="is-clickable"
+            @click="subscribe(e.id, 'btc')"
+          ></b-icon>
+          <b-icon
+            pack="fab"
+            icon="monero"
+            class="is-clickable"
+            @click="subscribe(e.id, 'xmr')"
+          ></b-icon>
+        </div>
       </div>
     </template>
     <template v-else-if="hasSubscribedEventsEvents">

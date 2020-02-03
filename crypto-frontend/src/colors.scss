@@ -1,3 +1,4 @@
+@import "~bulma/sass/utilities/initial-variables";
 @import "~bulma/sass/utilities/functions";
 $chalk: #f8f8f8;
 $chalker: #f9f9f9;
@@ -7,14 +8,24 @@ $light-blue: #4f5d75;
 $silver: #bfc0c0;
 $ocre: #ef8354;
 
+$text: $chalk;
+$text-strong: $chalker;
 $background: $deep-blue;
 $background-light: $light-blue;
 $body-background-color: $background;
-$text: $chalk;
-$text-strong: $chalker;
 $label-color: $chalker;
 $input-icon-color: $chalk-invert;
 $footer-background-color: $background;
 $box-background-color: $background-light;
 $box-color: $chalk;
 $dark: $chalker;
+
+@import "~bulma/sass/utilities/derived-variables.sass";
+$addColors: (
+  "chalk": (
+    $chalk,
+    $chalk-invert
+  )
+);
+
+$colors: map-merge($colors, $addColors);
