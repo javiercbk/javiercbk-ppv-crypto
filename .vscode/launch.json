@@ -21,6 +21,15 @@
       "program": "${workspaceFolder}/server/cmd/server/server.go",
       "env": {},
       "args": ["-ethPrivate", "${workspaceFolder}/eth/keys/ppv_private_key_1"]
+    },
+    {
+      "name": "Debug truffle tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceRoot}/ppv-contract/node_modules/.bin/truffle",
+      "args": ["test"],
+      "cwd": "${workspaceRoot}/ppv-contract",
+      "outFiles": ["${workspaceRoot}/ppv-contract/test/**/*"]
     }
   ]
 }

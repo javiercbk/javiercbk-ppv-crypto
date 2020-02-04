@@ -62,7 +62,8 @@ CREATE TABLE payments(
     currency crypto_currency NOT NULL,
     currency_payment_id TEXT,
     amount BIGINT,
-    wallet_address TEXT,
+    invoice_id TEXT,
+    expiry TIMESTAMPTZ,
     status payment_status NOT NULL DEFAULT 'unconfirmed',
     block_hash TEXT,
     block_number_hex TEXT,
@@ -78,7 +79,8 @@ CREATE TABLE payments(
     CONSTRAINT payments_user_fk FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-CREATE INDEX payments_wallet_address_currency_idx ON payments (currency, wallet_address);
+CREATE INDEX payments_invoice_id_idx ON payments (invoice_id);
+CREATE INDEX payments_invoice_id_currency_idx ON payments (currency, invoice_id);
 
 CREATE TABLE smart_contracts(
     "id" BIGSERIAL NOT NULL PRIMARY KEY,

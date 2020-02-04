@@ -22,7 +22,15 @@ export interface SubscriptionIntent {
   eventId: number;
   currency: CryptoCurrency;
   state: SubscriptionState;
+  address?: string;
   error?: any;
+}
+
+interface SubscriptionInvoiceDTO {
+  eventId: number;
+  currency: CryptoCurrency;
+  address: string;
+  expires: string;
 }
 
 interface SubscriptionError {
@@ -41,20 +49,20 @@ interface SubscriptionIntentResult {
   cancelled: boolean;
 }
 
-const _replaceSubscriptionFactory = (
-  eventId: number,
-  replacer: (s: SubscriptionIntent) => SubscriptionIntent
-) => (sub: SubscriptionIntent): SubscriptionIntent => {
-  if (sub.eventId === eventId) {
-    return replacer(sub);
-  } else {
-    return sub;
-  }
-};
+const findSubscriptionById = (eventId: number) => (sub: SubscriptionIntent) =>
+  sub.eventId === eventId;
 
 const _subscribeWithETH = async function(
   intent: SubscriptionIntent
-): Promise<SubscriptionIntentResult> {};
+): Promise<SubscriptionIntentResult> {
+  if (intent.address) {
+    await subscribeToPPV(intent.address);
+    return {
+      eventId: intent.eventId,
+      transactionId: "dummy-transaction"
+    };
+  }
+};
 
 const eventsModule: Module<SubscribeState, AppRootState> = {
   namespaced: true,
@@ -96,63 +104,48 @@ const eventsModule: Module<SubscribeState, AppRootState> = {
   },
   mutations: {
     setErrorSubscribingEvents: (s, payload: SubscriptionError) => {
-      s.subscriptions = s.subscriptions.map(
-        _replaceSubscriptionFactory(payload.eventId, sub => {
-          const errorSub = Object.assign({}, sub, {
-            state: SubscriptionState.Error
-          });
-          errorSub.error = payload.error;
-          return errorSub;
-        })
+      const idx = s.subscriptions.findIndex(
+        findSubscriptionById(payload.eventId)
       );
-    },
-    subscriptionIntentCompleted: (s, payload: SubscriptionIntentResult) => {
-      s.subscriptions = s.subscriptions.map(
-        _replaceSubscriptionFactory(payload.eventId, sub => {
-          const cancelledSub = Object.assign({}, sub, {
-            state: SubscriptionState.Cancelled
-          });
-          delete cancelledSub.error;
-          return cancelledSub;
-        })
-      );
-    },
-    subscriptionIntentCancelled: (s, payload: SubscriptionIntent) => {
-      s.subscriptions = s.subscriptions.map(
-        _replaceSubscriptionFactory(payload.eventId, sub => {
-          const cancelledSub = Object.assign({}, sub, {
-            state: SubscriptionState.Cancelled
-          });
-          delete cancelledSub.error;
-          return cancelledSub;
-        })
-      );
-    },
-    clearOrAddSubscription: (s, payload: SubscriptionIntent) => {
-      let found = false;
-      s.subscriptions = s.subscriptions.map(
-        _replaceSubscriptionFactory(payload.eventId, sub => {
-          found = true;
-          const clearSub = Object.assign({}, sub, {
-            state: SubscriptionState.Subscribing
-          });
-          delete clearSub.error;
-          return clearSub;
-        })
-      );
-      if (!found) {
-        s.subscriptions = [
-          ...s.subscriptions,
-          {
-            eventId: payload.eventId,
-            currency: payload.currency,
-            state: SubscriptionState.Subscribing
-          }
-        ];
+      if (idx >= 0) {
+        s.subscriptions[idx].error = payload.error;
       }
     },
-    setSubscriptions: (s, payload: SubscriptionIntent[]) => {
-      s.subscriptions = payload;
+    subscriptionIntentCompleted: (s, payload: SubscriptionIntentResult) => {
+      const idx = s.subscriptions.findIndex(
+        findSubscriptionById(payload.eventId)
+      );
+      if (idx >= 0) {
+        const sub = s.subscriptions[idx];
+        sub.state = SubscriptionState.Subscribed;
+        delete sub.error;
+      }
+    },
+    subscriptionIntentCancelled: (s, payload: SubscriptionIntent) => {
+      const idx = s.subscriptions.findIndex(
+        findSubscriptionById(payload.eventId)
+      );
+      if (idx >= 0) {
+        const sub = s.subscriptions[idx];
+        sub.state = SubscriptionState.Cancelled;
+        delete sub.error;
+      }
+    },
+    clearOrAddSubscription: (s, payload: SubscriptionIntent) => {
+      const idx = s.subscriptions.findIndex(
+        findSubscriptionById(payload.eventId)
+      );
+      if (idx >= 0) {
+        const sub = s.subscriptions[idx];
+        sub.state = SubscriptionState.Subscribing;
+        delete sub.error;
+      } else {
+        s.subscriptions.push({
+          eventId: payload.eventId,
+          currency: payload.currency,
+          state: SubscriptionState.Subscribing
+        });
+      }
     }
   }
 };

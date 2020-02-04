@@ -10,7 +10,7 @@ const walletAddressRE = /^0x[0-9a-fA-F]{40}$/;
 export const validateWalletAddress = (addr: string): boolean =>
   walletAddressRE.test(addr);
 
-export const subscribeToPPV = async function(address: string) {
-  const NameContract = new web3.eth.Contract(contractABI, address);
-  NameContract.methods.subscribe("subscribe").send();
+export const subscribeToPPV = async function(address: string): Promise<any> {
+  const ppvContract = new web3.eth.Contract(contractABI, address);
+  ppvContract.methods.subscribe("subscribe").send();
 };
